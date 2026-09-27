@@ -1,0 +1,19 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Secrets / env (never commit)
+.env
+.env.*
+*.pem
+*.key
+
+# Tooling (not used by the static site)
+node_modules/
+*.log
+
+# Original handoff pack (contents already extracted into docs/ and root)
+*.zip

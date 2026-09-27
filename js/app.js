@@ -1,0 +1,184 @@
+// App shell: boot, screen routing (with history so iOS swipe-back stays in the game), Home, Settings.
+import { load, save, getState, hasSave, resetProgress } from './state.js';
+import { setSoundEnabled, unlockAudio, play } from './audio.js';
+import { renderMap } from './ui/map.js';
+import { renderMission } from './ui/missionView.js';
+import { renderAlbum } from './ui/album.js';
+import { bip, cloud, roundTree, pine, house, windmill, lighthouse, palm, crystal, emo, THEMES } from './ui/art.js';
+import { totalStars, currentMission, allDone } from './game/progression.js';
+
+const screens = {
+  home: document.getElementById('screen-home'),
+  map: document.getElementById('screen-map'),
+  mission: document.getElementById('screen-mission'),
+  album: document.getElementById('screen-album'),
+};
+let currentScreen = null;
+
+function show(name, params = {}, mode = 'push') {
+  Object.entries(screens).forEach(([k, el]) => {
+    el.classList.toggle('active', k === name);
+    if (k !== name && k !== 'home') el.innerHTML = ''; // free DOM of hidden screens
+  });
+  currentScreen = name;
+  if (name === 'home') renderHome();
+  if (name === 'map') renderMap(screens.map, mapHandlers, params);
+  if (name === 'mission') renderMission(screens.mission, params.id, missionHandlers);
+  if (name === 'album') renderAlbum(screens.album, { onBack: () => show('map', {}, 'replace') });
+  try {
+    const entry = { s: name === 'mission' ? 'map' : name };
+    if (mode === 'push') history.pushState(entry, '');
+    else if (mode === 'replace') history.replaceState(entry, '');
+  } catch (e) { /* history may be unavailable in some embeds */ }
+}
+
+const mapHandlers = {
+  onPlay: (id) => show('mission', { id }),
+  onHome: () => show('home', {}, 'replace'),
+  onAlbum: () => show('album'),
+  onSettings: () => openSettings(),
+};
+const missionHandlers = {
+  onExit: () => show('map', {}, 'replace'),
+  onDone: (mission, reward) => show('map', { justCompleted: mission.id, reward }, 'replace'),
+};
+
+window.addEventListener('popstate', (e) => {
+  const s = (e.state && e.state.s) || 'home';
+  closeSettings();
+  show(screens[s] ? s : 'home', {}, 'none');
+});
+
+// ── Home ──
+function homeArt() {
+  const V = THEMES.village, C = THEMES.cove;
+  return `<svg class="home-art" viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="h-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5bbcf2"/><stop offset=".6" stop-color="#bfe9ff"/><stop offset="1" stop-color="#e9f8ff"/></linearGradient>
+    <radialGradient id="h-sun"><stop offset="0" stop-color="#fff8c2"/><stop offset=".5" stop-color="#ffe066"/><stop offset=".52" stop-color="#ffe066" stop-opacity=".35"/><stop offset="1" stop-color="#ffe066" stop-opacity="0"/></radialGradient>
+    <linearGradient id="h-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3cc6ea"/><stop offset="1" stop-color="#1a9fd0"/></linearGradient></defs>
+    <rect x="-300" y="-100" width="1000" height="900" fill="url(#h-sky)"/>
+    <circle cx="320" cy="120" r="60" fill="url(#h-sun)"/>
+    <g class="drift">${cloud(70, 90, 1.1)}${cloud(250, 60, 0.8, 0.9)}</g>${cloud(-40, 170, 1)}${cloud(460, 180, 1.1)}
+    <rect x="-300" y="400" width="1000" height="80" fill="url(#h-sea)"/>
+    ${lighthouse(352, 412, 0.7)}${crystal(300, 408, 0.5, C.crystal, C.crystal2)}${palm(270, 408, 0.5)}
+    <path d="M-300 440 Q-60 360 120 420 Q220 450 330 430 Q520 400 700 440 L700 900 L-300 900Z" fill="#2c7a58"/>
+    ${[...Array(10)].map((_, i) => pine(-20 + i * 30, 440 + (i % 3) * 6, 0.7 + (i % 2) * 0.15, '#2a8a5f', '#1d6d41')).join('')}
+    <path d="M-300 520 Q-40 470 150 505 Q300 530 700 490 L700 900 L-300 900Z" fill="${V.mid}"/>
+    ${house(300, 520, 1)}${house(354, 530, 0.8, '#6fa8ff')}${windmill(70, 520, 0.9)}${roundTree(-6, 540, 1, V.leaf, V.leafDark)}${roundTree(410, 546, 1, V.leaf, V.leafDark)}
+    <path d="M-300 600 Q60 560 200 590 Q330 615 700 580 L700 900 L-300 900Z" fill="${V.ground}"/>
+    <path d="M150 700 Q180 640 200 600 Q220 640 250 700Z" fill="${V.path}" opacity=".9"/>
+    <g class="home-npcs">${emo(300, 598, 30, '🦆')}${emo(342, 606, 28, '🐱')}${emo(64, 604, 28, '🦉')}${emo(100, 612, 26, '🦦')}</g>
+    ${bip(200, 668, 1.35, 'home-bip', 'happy')}
+  </svg>`;
+}
+
+function renderHome() {
+  const saved = hasSave();
+  const stars = totalStars();
+  const next = saved ? currentMission() : null;
+  screens.home.innerHTML = `
+  <div class="home">
+    ${homeArt()}
+    <div class="home-top">
+      <button class="icon-btn" data-act="sound" aria-label="Âm thanh">${getState().settings.sound ? '🔊' : '🔇'}</button>
+      <button class="icon-btn" data-act="settings" aria-label="Cài đặt">⚙️</button>
+    </div>
+    <div class="home-center">
+      <div class="logo">
+        <div class="logo-small">Math Rescue Adventure</div>
+        <h1><span>Đội Cứu Hộ</span><span class="accent">Cửu Chương</span></h1>
+      </div>
+      <div class="home-actions">
+        ${saved ? `<button class="btn btn-primary big" data-act="continue">▶ Chơi tiếp</button>
+          <div class="home-meta">⭐ ${stars} sao${next ? ` · Tiếp theo: ${next.npc.e} ${next.title}` : allDone() ? ' · 🏆 Anh hùng Cửu Chương' : ''}</div>` : '<button class="btn btn-primary big" data-act="start">Bắt đầu phiêu lưu ▶</button>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+screens.home.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  unlockAudio();
+  const act = b.dataset.act;
+  if (act === 'start' || act === 'continue') {
+    getState().started = true;
+    save();
+    play('tap');
+    show('map');
+  } else if (act === 'sound') {
+    toggleSound();
+    b.textContent = getState().settings.sound ? '🔊' : '🔇';
+  } else if (act === 'settings') {
+    play('tap');
+    openSettings();
+  }
+});
+
+// ── Settings (single light sheet) ──
+const sheetRoot = document.getElementById('sheet-root');
+
+function toggleSound() {
+  const s = getState().settings;
+  s.sound = !s.sound;
+  setSoundEnabled(s.sound);
+  save();
+  play('tap');
+}
+
+function openSettings() {
+  const renderSheet = () => {
+    const on = getState().settings.sound;
+    sheetRoot.innerHTML = `
+    <div class="sheet-backdrop" data-act="close"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Cài đặt">
+      <h2>Cài đặt</h2>
+      <button class="setting-row" data-act="sound"><span>${on ? '🔊' : '🔇'} Âm thanh</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>
+      <div class="reset-zone">
+        <button class="setting-row danger" data-act="ask-reset"><span>🗑️ Xóa tiến trình</span><span>›</span></button>
+        <div class="confirm" hidden>
+          <p>Xóa hết sao, sticker và tiến trình học?</p>
+          <div class="row"><button class="btn btn-light" data-act="cancel-reset">Không</button><button class="btn btn-danger" data-act="do-reset">Xóa hết</button></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" data-act="close">Xong</button>
+    </div>`;
+    sheetRoot.classList.add('open');
+  };
+  renderSheet();
+  sheetRoot.onclick = (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    unlockAudio();
+    const act = b.dataset.act;
+    if (act === 'close') { play('tap'); closeSettings(); }
+    else if (act === 'sound') { toggleSound(); renderSheet(); }
+    else if (act === 'ask-reset') { play('tap'); sheetRoot.querySelector('.confirm').hidden = false; }
+    else if (act === 'cancel-reset') { play('tap'); sheetRoot.querySelector('.confirm').hidden = true; }
+    else if (act === 'do-reset') {
+      resetProgress();
+      closeSettings();
+      show('home', {}, 'replace');
+    }
+  };
+}
+
+function closeSettings() {
+  sheetRoot.classList.remove('open');
+  sheetRoot.innerHTML = '';
+  if (currentScreen === 'home') renderHome();
+  else if (currentScreen === 'map') {
+    const pill = screens.map.querySelector('.stars-pill b');
+    if (pill) pill.textContent = totalStars();
+  }
+}
+
+// ── Boot ──
+load();
+setSoundEnabled(getState().settings.sound);
+// iOS: enable :active styles on touch + unlock audio on the first touch.
+document.addEventListener('touchstart', () => {}, { passive: true });
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+// Prevent pinch/double-tap zoom gestures inside the game surface (iOS ignores user-scalable=no).
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+show('home', {}, 'replace');
