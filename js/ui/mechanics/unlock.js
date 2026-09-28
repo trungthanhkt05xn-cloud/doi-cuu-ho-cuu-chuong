@@ -1,5 +1,5 @@
 // Mechanic A — UNLOCK: a combination lock. Typing the right product opens one lock; all locks open the gate.
-import { THEMES, svgWrap, defs, sceneBackdrop, bip, emo, fence, roundTree, pine, mushroom, crystal, rock, flower, starPath } from '../art.js';
+import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, fence, roundTree, pine, mushroom, crystal, rock, flower, starPath } from '../art.js';
 import { tween, wait, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
 
@@ -89,7 +89,7 @@ export function create({ root, mission, zone, P }) {
   if (kind !== 'cove') s += `<g transform="translate(${npcX} ${npcY})"><g id="${P}npc" class="npc wait">${emo(0, 0, 44, mission.npc.e)}</g></g>`;
   s += doors + `<g id="${P}locks">${locks}</g>`;
   if (kind === 'cove') s += `<g transform="translate(${npcX} ${npcY})"><g id="${P}npc" class="npc hidden-npc">${emo(0, 0, 40, mission.npc.e)}</g></g>`;
-  s += bip(kind === 'cove' ? 80 : 60, ground + 4, 0.6, `${P}hero`);
+  s += hero(kind === 'cove' ? 80 : 60, ground + 4, 0.6, `${P}hero`);
 
   root.innerHTML = svgWrap(s, { cls: 'scene-svg', par: 'xMidYMax meet' });
   const svg = root.querySelector('svg');

@@ -20,7 +20,7 @@ export const ZONES = [
 export const MISSIONS = [
   // ── Làng Nắng ──
   { id: 'v1', zone: 'village', type: 'repair', steps: 4, title: 'Sửa cầu gỗ', short: 'Sửa cầu',
-    intro: 'Cầu gỗ bị gãy! Đặt 4 tấm ván để Vịt Vàng qua sông.', npc: { e: '🦆', name: 'Vịt Vàng' } },
+    intro: 'Cầu gỗ bị gãy! Sửa 4 đoạn cầu để Vịt Vàng qua sông.', npc: { e: '🦆', name: 'Vịt Vàng' } },
   { id: 'v2', zone: 'village', type: 'unlock', steps: 3, title: 'Mở cổng trang trại', short: 'Mở cổng',
     intro: 'Cừu Bông bị nhốt! Mở 3 ổ khóa trên cổng nhé.', npc: { e: '🐑', name: 'Cừu Bông' } },
   { id: 'v3', zone: 'village', type: 'path', steps: 3, title: 'Đường tới cối xay', short: 'Tìm đường',
@@ -36,7 +36,7 @@ export const MISSIONS = [
   { id: 'f2', zone: 'forest', type: 'light', steps: 5, title: 'Đèn lồng đom đóm', short: 'Đèn lồng',
     intro: 'Rừng tối om! Thắp 5 đèn lồng cho Sóc Nhỏ về tổ.', npc: { e: '🐿️', name: 'Sóc Nhỏ' } },
   { id: 'f3', zone: 'forest', type: 'repair', steps: 5, title: 'Cầu dây leo', short: 'Cầu dây leo',
-    intro: 'Cầu dây leo bị đứt! Nối 5 tấm ván giúp Cáo Cam.', npc: { e: '🦊', name: 'Cáo Cam' } },
+    intro: 'Cầu dây leo bị đứt! Nối 5 đoạn cầu giúp Cáo Cam.', npc: { e: '🦊', name: 'Cáo Cam' } },
   { id: 'f4', zone: 'forest', type: 'unlock', steps: 4, title: 'Cửa đá cổ', short: 'Cửa đá',
     intro: 'Ếch Xanh kẹt sau cửa đá. Mở 4 ký hiệu phép thuật!', npc: { e: '🐸', name: 'Ếch Xanh' } },
   { id: 'f5', zone: 'forest', type: 'rescue', steps: 6, finale: true, title: 'Cứu Cú Con', short: 'Cứu Cú Con',
@@ -44,7 +44,7 @@ export const MISSIONS = [
 
   // ── Vịnh Pha Lê ──
   { id: 'c1', zone: 'cove', type: 'repair', steps: 5, title: 'Cầu cảng', short: 'Cầu cảng',
-    intro: 'Sóng làm hỏng cầu cảng! Lát 5 tấm ván cho Cánh Cụt.', npc: { e: '🐧', name: 'Cánh Cụt' } },
+    intro: 'Sóng làm hỏng cầu cảng! Lát lại 5 đoạn cho Cánh Cụt.', npc: { e: '🐧', name: 'Cánh Cụt' } },
   { id: 'c2', zone: 'cove', type: 'path', steps: 4, title: 'Hải trình đá ngầm', short: 'Hải trình',
     intro: 'Biển nhiều đá ngầm! Lái thuyền đúng đường tới đảo Rùa.', npc: { e: '🐢', name: 'Rùa Biển' } },
   { id: 'c3', zone: 'cove', type: 'unlock', steps: 4, title: 'Rương kho báu', short: 'Kho báu',

@@ -100,14 +100,14 @@ export function confetti(n = 36) {
 }
 
 // Short floating label over an element ("+1", "Mở được rồi!").
-export function floatText(anchorEl, text, cls = '') {
+export function floatText(anchorEl, text, cls = '', at = 0.35) {
   if (!anchorEl) return;
   const r = anchorEl.getBoundingClientRect();
   const el = document.createElement('div');
   el.className = `float-text ${cls}`;
   el.textContent = text;
   el.style.left = `${r.left + r.width / 2}px`;
-  el.style.top = `${r.top + r.height * 0.35}px`;
+  el.style.top = `${r.top + r.height * at}px`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1300);
 }

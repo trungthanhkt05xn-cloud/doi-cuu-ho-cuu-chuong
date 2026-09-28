@@ -2,10 +2,10 @@
 // Locked zones sit under clouds that clear when the zone opens.
 import { ZONES, MISSIONS, zoneMissions } from '../game/catalog.js';
 import { missionStatus, currentMission, starsOf, zoneUnlocked, totalStars, allDone } from '../game/progression.js';
-import { getState, save } from '../state.js';
+import { getState, save, nickname } from '../state.js';
 import { play, unlockAudio } from '../audio.js';
 import {
-  THEMES, bip, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
+  THEMES, hero as heroArt, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
 } from './art.js';
 import { tween, place, wait, floatText, retrigger, confetti } from './fx.js';
 
@@ -115,7 +115,7 @@ function nodeSvg(m, status, isCurrent) {
   const crown = m.finale ? `<text class="emo" y="${-r - 8}" text-anchor="middle" font-size="18">${status === 'done' ? '🏅' : '⭐'}</text>` : '';
   const pulse = isCurrent ? `<circle r="${r + 6}" class="pulse-ring"/><circle r="${r + 6}" class="pulse-ring d2"/>` : '';
   const arrow = isCurrent ? `<g transform="translate(0 ${-r - (m.finale ? 30 : 16)})"><g class="bounce-arrow"><path d="M-9 -14 h18 v8 h8 l-17 16 l-17 -16 h8z" fill="#ff7a2a" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></g></g>` : '';
-  return `<g class="map-node ${status} ${isCurrent ? 'current' : ''}" data-id="${m.id}" transform="translate(${x} ${y})" role="button" aria-label="${m.title}">
+  return `<g class="map-node ${status} ${isCurrent ? 'current' : ''}" data-id="${m.id}" transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${m.title}${status === 'locked' ? ' (chưa mở)' : ''}"${status === 'locked' ? ' aria-disabled="true"' : ''}>
     <circle r="${r + 14}" fill="transparent"/>${pulse}<g class="node-body"><ellipse cy="${r - 2}" rx="${r}" ry="6" fill="#000" opacity=".15"/>${inner}${crown}</g>${starsRow}${label}${arrow}</g>`;
 }
 
@@ -163,7 +163,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     <path d="${d}" class="trail-edge"/><path d="${d}" class="trail"/><path d="${d}" class="trail-dash"/>${trailDone}
     ${zoneBanner(ZONES[0], 240, 104)}${zoneBanner(ZONES[1], 226, 590)}${zoneBanner(ZONES[2], 228, 1098)}
     ${nodes}
-    <g id="map-hero-wrap">${bip(heroAt[0] - 40, heroAt[1] + 20, 0.42, 'map-hero', 'happy')}</g>
+    <g id="map-hero-wrap">${heroArt(heroAt[0] - 40, heroAt[1] + 20, 0.42, 'map-hero', 'happy')}</g>
     ${fogs}
     <path id="walk-path" d="" fill="none" stroke="none"/>
   </svg>`;
@@ -218,8 +218,11 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     place(hero, end[0] - 40, end[1] + 20, 0.42);
   }
 
-  // node taps
+  // node taps (+ Enter / Space for keyboard users)
   svgEl.querySelectorAll('.map-node').forEach((g) => {
+    g.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); g.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+    });
     g.addEventListener('click', () => {
       unlockAudio();
       const m = MISSIONS.find((x) => x.id === g.dataset.id);
@@ -286,7 +289,8 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     }
 
     if (!st.progress.tutorial.intro) {
-      showToast('<span class="toast-bip">🤖</span> Chào Đội trưởng! Mình là <b>Bíp</b>. Chạm vào bạn Vịt để bắt đầu cứu hộ nhé!', 0);
+      showToast('Chào <b class="nick"></b>! Chạm vào bạn Vịt để bắt đầu cứu hộ nhé!', 0);
+      toast.querySelector('.nick').textContent = nickname();   // user text: textContent only
       st.progress.tutorial.intro = true;
       save();
     } else if (params.justCompleted && allDone()) {

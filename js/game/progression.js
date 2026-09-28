@@ -74,5 +74,5 @@ export function completeMission(id, stars) {
   const newZone = ZONES.find((z) => zoneUnlocked(z.id) && !unlockedBefore.includes(z.id)) || null;
   getState().profile.stars = totalStars();
 
-  return { stars, prevStars, starsAdded: best - prevStars, firstTime, sticker, badge, newZone };
+  return { stars, best, prevStars, starsAdded: best - prevStars, firstTime, sticker, badge, newZone };
 }

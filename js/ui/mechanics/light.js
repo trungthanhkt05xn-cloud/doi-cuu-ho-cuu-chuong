@@ -1,7 +1,8 @@
-// Mechanic E — LIGHT / POWER: night has fallen. Each correct answer sends energy to one lamp;
-// the whole scene brightens step by step.
-import { THEMES, svgWrap, defs, sceneBackdrop, bip, emo, house, pine, roundTree, rock, crystal, lighthouse } from '../art.js';
-import { flyTo, wait, svgBurst, tween } from '../fx.js';
+// Mechanic E — LIGHT / POWER: night has fallen. Each lamp needs a × b little bulbs, hung as b clusters
+// of a bulbs (a × b = "a được lấy b lần", same picture as the hint). A correct answer lights exactly
+// those clusters one by one (a, 2a, 3a …), then powers the lamp — the whole scene brightens step by step.
+import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, house, pine, roundTree, rock, crystal, lighthouse, spreadGroups } from '../art.js';
+import { wait, svgBurst, tween, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
 
 export function create({ root, mission, zone, P }) {
@@ -50,7 +51,7 @@ export function create({ root, mission, zone, P }) {
   // NPC (village / forest)
   if (zone.id === 'village') s += `<g transform="translate(200 262)"><g id="${P}npc" class="npc wait">${emo(0, 0, 34, mission.npc.e)}</g></g>`;
   if (zone.id === 'forest') s += `<g transform="translate(327 158)"><g id="${P}npc" class="npc hidden-npc">${emo(0, 0, 26, mission.npc.e)}</g></g>`;
-  s += bip(zone.id === 'cove' ? 90 : 118, zone.id === 'cove' ? 258 : 272, 0.56, `${P}hero`);
+  s += hero(zone.id === 'cove' ? 90 : 118, zone.id === 'cove' ? 258 : 272, 0.56, `${P}hero`);
 
   // darkness layer
   s += `<rect id="${P}dark" x="-400" y="-300" width="1200" height="900" fill="#081232" opacity="${DARK}" pointer-events="none"/>`;
@@ -77,6 +78,8 @@ export function create({ root, mission, zone, P }) {
     // windows that light up with the lamps
     s += lamps + `<g id="${P}wins">${[[57, 180], [79, 180], [191, 177], [210, 177], [317, 180], [339, 180]].map(([x, y]) => `<rect class="win-lit" x="${x - 4}" y="${y - 4}" width="9" height="9" rx="2" fill="#ffe27a"/>`).join('')}</g>`;
   } else s += lamps;
+  // bulb clusters for the current lamp (above the darkness, filled per question)
+  s += `<g id="${P}garland" class="garland"></g>`;
   if (zone.id === 'cove') {
     s += `<g id="${P}beam" opacity="0"><g><path d="M200 41 L420 10 L420 72Z" fill="#fff6b0" opacity=".45"/><path d="M200 41 L-20 10 L-20 72Z" fill="#fff6b0" opacity=".3"/>
       <animateTransform attributeName="transform" type="rotate" values="-12 200 41;12 200 41;-12 200 41" dur="3.2s" repeatCount="indefinite"/></g>
@@ -88,6 +91,40 @@ export function create({ root, mission, zone, P }) {
   const dark = svg.querySelector(`#${P}dark`);
   const lamp = (i) => svg.querySelector(`#${P}lamp${i}`);
   let lit = 0;
+  const garland = svg.querySelector(`#${P}garland`);
+  const spans = zone.id === 'cove' ? [[14, 166], [234, 386]] : [[16, 384]];   // keep the lighthouse clear
+  const bandY = 30;
+  let cur = null;
+
+  // b clusters × a bulbs on a wire; bulbs in a dice-like grid so small groups can be seen at a glance.
+  function drawGarland(q) {
+    const { xs, cell: room } = spreadGroups(q.b, spans, 64);
+    const cols = q.a <= 4 ? 2 : 3;
+    const rows = Math.ceil(q.a / cols);
+    const cell = Math.max(8, Math.min(13, (room - 10) / cols));   // bigger bulbs when there are few clusters
+    const r = cell * 0.4;
+    const w = cols * cell + 6, h = rows * cell + 6;
+    let g = `<path class="wire" d="M${spans[0][0] - 20} ${bandY - h / 2 - 8} ${xs.map((x) => `L${x} ${bandY - h / 2}`).join(' ')} L${spans[spans.length - 1][1] + 20} ${bandY - h / 2 - 8}"/>`;
+    xs.forEach((x, k) => {
+      let bulbs = '';
+      for (let i = 0; i < q.a; i++) {
+        // centre the last, shorter row
+        const row = Math.floor(i / cols);
+        const inRow = row === rows - 1 ? q.a - row * cols : cols;
+        const bx = (i % cols - (inRow - 1) / 2) * cell;
+        const by = (row - (rows - 1) / 2) * cell;
+        bulbs += `<circle class="bulb" cx="${bx}" cy="${by}" r="${r}"/>`;
+      }
+      g += `<g class="cluster" transform="translate(${x} ${bandY})"><circle class="cluster-glow" r="${w * 0.9}" fill="url(#${P}glow)"/>
+        <rect class="socket" x="${-w / 2}" y="${-h / 2}" width="${w}" height="${h}" rx="7"/>${bulbs}
+        <text class="cluster-count" y="${h / 2 + 11}" text-anchor="middle"></text></g>`;
+    });
+    const capX = spans.length > 1 ? (spans[0][0] + spans[0][1]) / 2 : 200;   // cove: beside the lighthouse
+    g += `<g class="caption" transform="translate(${capX} ${bandY + h / 2 + 13})"><rect x="-80" y="-10" width="160" height="20" rx="10"/>
+      <text text-anchor="middle" dy=".35em">Mỗi chùm ${q.a} bóng · ${q.b} chùm</text></g>`;
+    garland.innerHTML = g;
+    retrigger(garland, 'pop-in');
+  }
 
   function brighten() {
     const from = +dark.getAttribute('opacity');
@@ -96,17 +133,30 @@ export function create({ root, mission, zone, P }) {
   }
 
   return {
-    answerKind: keypad ? 'keypad' : 'choices', skin: 'bulb', optionCount: 4,
+    answerKind: keypad ? 'keypad' : 'choices', skin: 'bulb', optionCount: 4, floatAt: 0.66,
     icon: zone.id === 'cove' ? '⚡' : '💡',
-    instruction: keypad ? 'Nhập số để nạp năng lượng!' : 'Chọn bóng đèn có số đúng!',
-    correctLine: ['Sáng rồi!', 'Rực rỡ quá!', 'Thêm một đèn!'],
+    instruction: keypad ? 'Cần bao nhiêu bóng? Bấm số!' : 'Đèn cần bao nhiêu bóng nhỏ?',
+    correctLine: ['Sáng rồi!', 'Rực rỡ quá!', 'Đủ bóng rồi!'],
     setQuestion(q, i) {
+      cur = q;
       svg.querySelectorAll('.lamp.target').forEach((el) => el.classList.remove('target'));
       lamp(i).classList.add('target');
+      drawGarland(q);
     },
-    async onCorrect(i, fromEl) {
+    async onCorrect(i) {
       const l = lamp(i);
-      if (fromEl && !keypad) await flyTo(fromEl, l.querySelector('.lamp-target'), { scaleTo: 0.35 });
+      const q = cur;
+      const cap = garland.querySelector('.caption');
+      if (cap) cap.classList.add('fade-out');
+      // Light the clusters one by one, counting up a, 2a, 3a …
+      const clusters = [...garland.querySelectorAll('.cluster')];
+      const step = clusters.length > 6 ? 90 : 140;
+      for (let k = 0; k < clusters.length; k++) {
+        clusters[k].classList.add('on');
+        clusters[k].querySelector('.cluster-count').textContent = String(q.a * (k + 1));
+        play('count', k);
+        await wait(step);
+      }
       l.classList.remove('target');
       l.classList.add('lit');
       lit = i + 1;
@@ -118,7 +168,7 @@ export function create({ root, mission, zone, P }) {
       }
       await brighten();
     },
-    async onWrong() {},
+    async onWrong() { retrigger(garland, 'wobble'); },
     async onComplete() {
       if (zone.id === 'cove') {
         svg.querySelector(`#${P}beam`).setAttribute('opacity', '1');

@@ -17,10 +17,13 @@ export class MissionSession {
     this.firstTryCorrect = 0;
     this.reward = null;
     this.q = null;
+    // Per-mission learning context: remediation happens at most once per fact per mission.
+    this.ctx = { tables: this.zone.tables, allowed: unlockedTables(), remediated: new Set(), lastSource: null };
   }
 
   next() {
-    this.q = nextQuestion({ tables: this.zone.tables, allowed: unlockedTables() });
+    this.q = nextQuestion(this.ctx);
+    this.ctx.lastSource = this.q.source;
     this.options = this.answerKind === 'choices' ? makeOptions(this.q, this.optionCount, this.level) : null;
     this.misses = 0;
     this.hintLevel = 0;
@@ -35,7 +38,7 @@ export class MissionSession {
     const q = this.q;
     const correct = Number(value) === q.answer;
     if (!this.recorded) {
-      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0 });
+      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0, remediation: q.source === 'remediation' });
       this.recorded = true;
       if (correct && this.hintLevel === 0) this.firstTryCorrect += 1;
     }
@@ -59,6 +62,8 @@ export class MissionSession {
   finish() {
     if (this.reward) return this.reward;   // guard against double rewards (double tap / re-entry)
     this.reward = completeMission(this.mission.id, starsFor(this.firstTryCorrect, this.total));
+    this.reward.firstTry = this.firstTryCorrect;
+    this.reward.total = this.total;
     save();
     return this.reward;
   }

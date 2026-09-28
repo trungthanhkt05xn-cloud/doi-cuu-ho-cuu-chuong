@@ -1,0 +1,85 @@
+// Player identity: pick an avatar (1 tap) → nickname or skip. Used for first-time onboarding
+// and for "change profile" from the Rescue Book. Never touches progress / learning data.
+import { getState, save, cleanNickname } from '../state.js';
+import { AVATARS, avatarSvg } from './art.js';
+import { play, unlockAudio } from '../audio.js';
+
+export function renderProfile(host, { mode = 'onboard', onDone, onBack }) {
+  const profile = getState().profile;
+  let picked = profile.avatarId || '';
+  const edit = mode === 'edit';
+
+  host.innerHTML = `
+  <div class="profile-screen">
+    <header class="topbar"><button class="icon-btn" data-act="back" aria-label="Quay lại">←</button><div class="spacer"></div></header>
+    <div class="profile-body">
+      <section class="pf-step pf-pick">
+        <h1>Chọn nhân vật của bạn</h1>
+        <div class="avatar-grid">${AVATARS.map((a) => `
+          <button class="avatar-opt ${a.id === picked ? 'on' : ''}" data-id="${a.id}" aria-label="${a.name}" aria-pressed="${a.id === picked}">
+            ${avatarSvg(a.id, 'happy', 'pf-av')}<small>${a.name}</small></button>`).join('')}
+        </div>
+      </section>
+      <section class="pf-step pf-name" hidden>
+        <div class="pf-me"></div>
+        <label class="pf-q" for="pf-nick">Bạn muốn mọi người gọi mình là gì?</label>
+        <input id="pf-nick" class="pf-input" type="text" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false"
+          autocapitalize="words" enterkeyhint="done" placeholder="Ví dụ: Bin, Na, Minh">
+        <div class="row pf-actions">
+          ${edit ? '' : '<button class="btn btn-light" data-act="skip">Bỏ qua</button>'}
+          <button class="btn btn-primary" data-act="done">Xong ✓</button>
+        </div>
+      </section>
+    </div>
+  </div>`;
+
+  const $ = (s) => host.querySelector(s);
+  const input = $('#pf-nick');
+  input.value = profile.nickname || '';   // .value — user text never goes through innerHTML
+  let step = 'pick';
+
+  function toName() {
+    step = 'name';
+    $('.pf-pick').hidden = true;
+    $('.pf-name').hidden = false;
+    $('.pf-me').innerHTML = avatarSvg(picked, 'happy', 'pf-av big');
+  }
+  function toPick() {
+    step = 'pick';
+    $('.pf-name').hidden = true;
+    $('.pf-pick').hidden = false;
+  }
+  function finish(nick) {
+    // Only identity fields change; stars / missions / mastery / stickers / badges / queue stay untouched.
+    profile.avatarId = picked;
+    profile.nickname = cleanNickname(nick);
+    save();
+    input.blur();
+    onDone();
+  }
+
+  host.querySelector('.profile-screen').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    unlockAudio();
+    if (b.classList.contains('avatar-opt')) {
+      picked = b.dataset.id;
+      host.querySelectorAll('.avatar-opt').forEach((o) => { o.classList.toggle('on', o === b); o.setAttribute('aria-pressed', String(o === b)); });
+      play('pop');
+      setTimeout(toName, 220);   // a beat to see the choice, then straight on
+      return;
+    }
+    const act = b.dataset.act;
+    if (act === 'back') { play('tap'); if (step === 'name') toPick(); else onBack(); }
+    if (act === 'skip') { play('tap'); finish(''); }
+    if (act === 'done') { play('correct'); finish(input.value); }
+  });
+  // Keep what the child sees = what gets saved: no leading spaces, max 12 characters (not UTF-16 units).
+  input.addEventListener('input', (e) => {
+    if (e.isComposing) return;
+    const v = input.value.replace(/^\s+/, '');
+    const cut = Array.from(v).slice(0, 12).join('');
+    if (cut !== input.value) input.value = cut;
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); play('correct'); finish(input.value); } });
+}

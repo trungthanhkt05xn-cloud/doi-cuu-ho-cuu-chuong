@@ -72,6 +72,7 @@ const SOUNDS = {
   deflate: (t) => tone(520, t, 0.4, { vol: 0.06, to: 180 }),
   whoosh: (t) => noise(t, 0.35, { vol: 0.12, freq: 1400, q: 0.6 }),
   lamp: (t) => { tone(440, t, 0.35, { vol: 0.1, to: 880 }); tone(1320, t + 0.12, 0.3, { vol: 0.05 }); },
+  count: (t, k = 0) => tone(520 * Math.pow(1.06, Math.min(k, 12)), t, 0.07, { type: 'triangle', vol: 0.09 }),
   step: (t) => tone(300, t, 0.05, { type: 'triangle', vol: 0.06 }),
   star: (t) => { tone(1046, t, 0.28, { type: 'triangle', vol: 0.13 }); tone(1568, t + 0.05, 0.3, { vol: 0.06 }); },
   fanfare: (t) => {
@@ -82,7 +83,7 @@ const SOUNDS = {
   reveal: (t) => [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, t + i * 0.09, 0.35, { vol: 0.09 })),
 };
 
-export function play(name) {
+export function play(name, arg) {
   if (!enabled || !ctx || ctx.state !== 'running' || !SOUNDS[name]) return;
-  try { SOUNDS[name](ctx.currentTime + 0.01); } catch (e) { /* ignore */ }
+  try { SOUNDS[name](ctx.currentTime + 0.01, arg); } catch (e) { /* ignore */ }
 }

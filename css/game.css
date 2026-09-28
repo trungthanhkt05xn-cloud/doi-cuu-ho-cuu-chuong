@@ -12,7 +12,10 @@
 .trail-done { fill: none; stroke: #ffc933; stroke-width: 5; stroke-dasharray: 1 11; stroke-linecap: round; }
 .banner-text { font-weight: 900; font-size: 19px; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .18); stroke-width: 3px; }
 .banner-sub { font-weight: 800; font-size: 12px; fill: #22324d; }
-.map-node { cursor: pointer; }
+.map-node { cursor: pointer; outline: none; }
+.map-node:focus-visible .node-base { stroke: #1f7cff; stroke-width: 6; }
+.map-node:focus-visible .node-label-bg { fill: #1f7cff; opacity: 1; }
+.map-node:focus-visible .node-label { fill: #fff; }
 .node-base { fill: #fff; stroke: #fff; stroke-width: 4; }
 .node-base.open { fill: #fff7df; stroke: #ff9a2e; stroke-width: 4.5; }
 .node-base.done { fill: #fff; stroke: #ffc933; stroke-width: 5; }
@@ -88,6 +91,9 @@
 .intro-card h2 { font-size: 26px; font-weight: 900; }
 .intro-card p { font-size: 19px; line-height: 1.4; color: var(--ink-soft); font-weight: 600; max-width: 380px; }
 .intro-card .btn { margin-top: 8px; }
+.intro-duo { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+.intro-av svg { width: 64px; height: 80px; }
+.intro-duo .intro-npc { margin-top: 0; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 
 /* task card */
@@ -107,6 +113,8 @@
 @keyframes blink { 50% { opacity: 0; } }
 .help-btn { width: 52px; height: 52px; border-radius: 16px; background: #fff7d6; font-size: 26px; flex: 0 0 auto; box-shadow: 0 3px 0 #f0dd98; font-family: "Apple Color Emoji", "Segoe UI Emoji", var(--font); }
 .help-btn:active { transform: translateY(2px); }
+.task-card.again { box-shadow: 0 4px 0 #ffd36b, 0 6px 16px rgba(34, 50, 77, .08); }
+.task-card.again .task-instr { color: #d8640c; }
 
 /* answers: choices */
 .answers { position: relative; }
@@ -180,16 +188,20 @@
 .key-del { background: #eef2f8; font-size: 26px; }
 .key-ok { color: #fff; background: linear-gradient(180deg, #3fd08a, var(--good)); box-shadow: 0 5px 0 var(--good-shadow); }
 .key-ok:active { box-shadow: 0 2px 0 var(--good-shadow); }
+.key-ok:disabled { background: #dfe5ee; color: #9aa6ba; box-shadow: 0 5px 0 #c6cfdc; transform: none; }
 .skin-village .key:not(.key-ok) { background: linear-gradient(180deg, #fff, #fff4e4); }
 .skin-forest .key:not(.key-ok) { background: linear-gradient(180deg, #f3f7f2, #dbe6de); box-shadow: 0 5px 0 #a6b8ad; }
 .skin-cove .key:not(.key-ok) { background: linear-gradient(180deg, #f3fdff, #d4f3fb); box-shadow: 0 5px 0 #8fcfe0; }
 
-/* tutorial hand */
+/* tutorial cue: never on one particular answer.
+   choices → the hand sweeps across all options; keypad → the answer slot glows ("type here"). */
 .answers.tutorial::after {
-  content: "👆"; position: absolute; left: 50%; bottom: -6px; font-size: 44px; pointer-events: none;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; animation: tap-hint 1.4s ease-in-out infinite; z-index: 3;
+  content: "👆"; position: absolute; left: 50%; bottom: -10px; font-size: 40px; pointer-events: none;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; animation: tap-sweep 2.4s ease-in-out infinite; z-index: 3;
 }
-@keyframes tap-hint { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -18px); } }
+@keyframes tap-sweep { 0%, 100% { transform: translate(-160%, 0); } 25%, 75% { transform: translate(-50%, -14px); } 50% { transform: translate(60%, 0); } }
+.equation.tutorial .ans-slot { animation: slot-cue 1.1s ease-in-out infinite; }
+@keyframes slot-cue { 0%, 100% { box-shadow: 0 0 0 0 rgba(31, 124, 255, .55); } 50% { box-shadow: 0 0 0 9px rgba(31, 124, 255, 0); transform: scale(1.06); } }
 
 /* hint bubble (over the bottom of the scene, never full screen) */
 .hint-bubble {
@@ -230,6 +242,8 @@
 .star.pop { animation: star-pop .45s cubic-bezier(.2, 1.8, .4, 1); }
 @keyframes star-pop { from { transform: scale(.2) rotate(-40deg); } }
 .saved { font-size: 19px; font-weight: 700; color: var(--ink-soft); }
+.why { white-space: nowrap; font-size: clamp(15px, 4.4vw, 18px); font-weight: 800; color: var(--ink); background: #fff; border-radius: 14px; padding: 4px 12px; box-shadow: 0 3px 0 #e5e9f1; }
+.why-next { font-size: 16px; font-weight: 700; color: #d8640c; }
 .reward-chip { display: flex; align-items: center; gap: 8px; background: #fff; border-radius: 16px; padding: 6px 14px; font-size: 16px; font-weight: 600; box-shadow: 0 3px 0 #e5e9f1; animation: rise .4s .5s both; }
 .reward-chip .big { font-size: 28px; font-family: "Apple Color Emoji", "Segoe UI Emoji", var(--font); }
 .reward-chip.badge { background: #fff6d6; box-shadow: 0 3px 0 #f0d99a; }
@@ -275,6 +289,24 @@
 .slot.filled .slot-empty { opacity: 0; }
 .slot.filled .plank { transform-box: fill-box; transform-origin: center; animation: pop-scale .3s cubic-bezier(.2, 1.8, .4, 1); }
 @keyframes glow { 50% { fill: rgba(255, 210, 63, .65); } }
+.plank-num { font-weight: 900; font-size: 11px; fill: #fff; opacity: 0; paint-order: stroke; stroke: rgba(90, 50, 15, .6); stroke-width: 2.5px; }
+.slot.filled .plank-num { opacity: 1; transition: opacity .3s .1s; }
+.slot-q.tick { transform-box: fill-box; transform-origin: center; animation: pop-scale .25s cubic-bezier(.2, 1.8, .4, 1); }
+.slot.target .slot-q.tick { animation: pop-scale .25s cubic-bezier(.2, 1.8, .4, 1); }
+
+/* a × b shown in the scene: caption chip + groups (plank bundles / bulb clusters) */
+.scene-svg .caption rect { fill: #fff; opacity: .92; }
+.scene-svg .caption text { font-weight: 800; font-size: 13px; fill: #22324d; }
+.scene-svg .caption { transition: opacity .3s; }
+.supply .bundle { filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .15)); }
+.garland .wire { fill: none; stroke: #39425a; stroke-width: 2; }
+.garland .socket { fill: #26304a; stroke: #7d8bb0; stroke-width: 1.5; }
+.garland .bulb { fill: #56607a; stroke: #a8b3cf; stroke-width: 1; transition: fill .2s; }
+.garland .cluster-glow { opacity: 0; transition: opacity .25s; }
+.garland .cluster.on .bulb { fill: #ffe066; stroke: #fff6b0; }
+.garland .cluster.on .cluster-glow { opacity: 1; }
+.garland .cluster-count { font-weight: 900; font-size: 13px; fill: #fff3a0; paint-order: stroke; stroke: #22324d; stroke-width: 3px; }
+.garland .cluster.on .cluster-count { animation: pop-scale .25s cubic-bezier(.2, 1.8, .4, 1); transform-box: fill-box; transform-origin: center; }
 
 /* unlock locks */
 .lock .lock-body { fill: #b8c0cc; stroke: #263553; stroke-width: 2.5; }
@@ -353,6 +385,9 @@
   .home-center { flex-direction: row; justify-content: center; align-items: center; gap: 6vw; padding-top: 0; }
   .logo h1 { font-size: clamp(34px, 7vh, 56px); }
   .success-card h2 { font-size: 24px; }
+  .why { font-size: 15px; }
+  .why-next { font-size: 14px; }
+  .success-card { gap: 6px; }
   .groups-pic { max-height: 58px; width: auto; }
   .hint-text { font-size: 16px; }
   .star { width: 40px; height: 40px; }

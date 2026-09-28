@@ -47,7 +47,8 @@ const MIX = { target: 0.5, review: 0.3, easy: 0.2 };
 
 /**
  * Pick the next question.
- * @param {{tables:number[], allowed:number[]}} ctx  tables = zone focus, allowed = every table unlocked so far
+ * @param {{tables:number[], allowed:number[], remediated?:Set<string>, lastSource?:string}} ctx
+ *   tables = zone focus, allowed = every table unlocked so far; remediated/lastSource are per mission.
  */
 export function nextQuestion(ctx) {
   const lp = L();
@@ -61,13 +62,22 @@ export function nextQuestion(ctx) {
   let chosen = null;
   let source = 'target';
 
-  // 1) Scheduled reviews (after a mistake) come first when due — never back-to-back.
-  const due = lp.queue
-    .filter((it) => it.dueQ <= lp.qCount && allowed.includes(parseKey(it.key).a))
-    .sort((x, y) => x.dueQ - y.dueQ);
-  for (const it of due) {
-    if (!blocked(it.key)) { chosen = it.key; source = 'review'; lp.queue.splice(lp.queue.indexOf(it), 1); break; }
-    it.dueQ = lp.qCount + 2;
+  // 1) Remediation: a fact answered wrong comes back once at least 2 other facts have been shown.
+  //    Max once per fact per mission (ctx.remediated), never two remediations in a row, and a
+  //    fact that is not due yet simply waits — the queue lives in the save, so it carries over.
+  const wq = lp.wrongFactQueue;
+  const idx = lp.qCount + 1;   // number of the question about to be shown
+  if (ctx.lastSource !== 'remediation') {
+    const clash = (k) => k === last || (last && k === twinOf(last)) || productOf(k) === lastAnswer;
+    const due = wq
+      .filter((it) => it.dueQ <= idx && allowed.includes(parseKey(it.key).a) && !(ctx.remediated && ctx.remediated.has(it.key)))
+      .sort((x, y) => x.dueQ - y.dueQ);
+    const it = due.find((d) => !clash(d.key));
+    if (it) {
+      chosen = it.key;
+      source = 'remediation';
+      if (ctx.remediated) ctx.remediated.add(it.key);   // removed from the queue when answered
+    }
   }
 
   // 2) Mixed buckets: zone targets / weak-or-stale review / easy confidence builders.
@@ -108,14 +118,19 @@ export function nextQuestion(ctx) {
   return { key: chosen, a, b, answer: a * b, source };
 }
 
-/** Record the FIRST outcome of a question (retries after a hint are not recorded as new attempts). */
-export function recordAnswer(key, { correct, ms, hinted = false }) {
+/**
+ * Record the FIRST outcome of a question (retries after a hint are not recorded as new attempts).
+ * remediation = this question was the "second chance" for an earlier mistake.
+ */
+export function recordAnswer(key, { correct, ms, hinted = false, remediation = false }) {
   const lp = L();
   const f = ensureFact(key);
   f.attempts += 1;
   f.lastSeen = Date.now();
   f.lastResult = correct;
   f.lastMs = Math.round(ms);
+  // The second chance is used up once answered (leaving mid-question keeps it queued for later).
+  if (remediation) lp.wrongFactQueue = lp.wrongFactQueue.filter((it) => it.key !== key);
   if (correct) {
     f.correct += 1;
     f.streak += 1;
@@ -123,17 +138,20 @@ export function recordAnswer(key, { correct, ms, hinted = false }) {
     const gain = hinted ? 0.05 : 0.16 * speed + 0.03 * Math.min(f.streak - 1, 3);
     f.mastery = clamp01(f.mastery + gain);
     f.avgResponseMs = f.avgResponseMs == null ? Math.round(ms) : Math.round(f.avgResponseMs * 0.7 + ms * 0.3);
+    if (remediation) f.recovered = (f.recovered || 0) + 1;
   } else {
     f.wrong += 1;
     f.streak = 0;
     f.mastery = clamp01(f.mastery * 0.55 - 0.05);
-    // Spaced re-exposure: the "twin" (7×8 → 8×7) a few turns later, then the fact itself.
-    const twin = twinOf(key);
-    const { b } = parseKey(key);
-    lp.queue = lp.queue.filter((it) => it.key !== key && it.key !== twin);
-    if (twin !== key && TABLES.includes(b)) lp.queue.push({ key: twin, dueQ: lp.qCount + 3 });
-    lp.queue.push({ key, dueQ: lp.qCount + 6 });
-    if (lp.queue.length > 24) lp.queue.splice(0, lp.queue.length - 24);
+    // Queue ONE remediation, due after 2 other facts (this question = lp.qCount).
+    // A failed remediation is not re-queued (no loops): the low mastery keeps it in the review bucket.
+    if (!remediation) {
+      const wq = lp.wrongFactQueue;
+      const i = wq.findIndex((it) => it.key === key);
+      if (i >= 0) wq.splice(i, 1);
+      wq.push({ key, dueQ: lp.qCount + 3 });
+      if (wq.length > 24) wq.splice(0, wq.length - 24);
+    }
   }
 }
 
@@ -198,7 +216,7 @@ export function hintFor(q, level) {
     else if (b === 10) lines = [`Nhân 10: viết thêm số 0 vào sau ${a}`];
     else if (b > 5) lines = [`${a} × 5 = ${a * 5}`, `thêm ${b - 5} lần ${a} nữa: ${a * 5} + ${a * (b - 5)}`];
     else lines = [`${a} × ${b - 1} = ${a * (b - 1)}`, `thêm 1 lần ${a} nữa: ${a * (b - 1)} + ${a}`];
-    return { level: 3, title: 'Mẹo của Bíp nè!', lines };
+    return { level: 3, title: 'Mẹo nè!', lines };
   }
-  return { level: 4, title: 'Bíp chỉ cho nhé!', reveal: `${a} × ${b} = ${answer}` };
+  return { level: 4, title: 'Xem nè!', reveal: `${a} × ${b} = ${answer}` };
 }

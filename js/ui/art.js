@@ -1,3 +1,5 @@
+import { getState } from '../state.js';
+
 // Procedural SVG illustration kit. Everything is vector + tiny; swap for real art later
 // by replacing these functions (scenes only call these helpers).
 
@@ -25,12 +27,30 @@ export const svgWrap = (inner, { vb = '0 0 400 300', cls = '', par = 'xMidYMid m
 export const emo = (x, y, size, ch, cls = '') =>
   `<text class="emo ${cls}" x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dy="0.35em">${ch}</text>`;
 
-// ── Hero: Bíp the rescue robot. Origin = point between the feet. ──
-export function bip(x, y, s = 1, id = '', mood = '') {
-  return `<g ${id ? `id="${id}"` : ''} class="bip-pos" transform="translate(${x} ${y}) scale(${s})" data-x="${x}" data-y="${y}" data-s="${s}">
-  <g class="bip ${mood}">
-    <ellipse cx="0" cy="0" rx="22" ry="5" fill="#0b1b33" opacity=".18"/>
-    <g class="bip-float">
+// ── Player avatars. Origin = point between the feet, ~95 units tall. Every avatar keeps the
+// .bip / .bip-float / .bip-arm-* / eyes-n|h|t structure so moods + idle animations work for all. ──
+const OL = '#263553';
+
+function face(y = -57, dx = 9, eye = OL) {
+  return `<g class="eyes-n"><ellipse cx="${-dx}" cy="${y}" rx="3.4" ry="4.4" fill="${eye}"/><ellipse cx="${dx}" cy="${y}" rx="3.4" ry="4.4" fill="${eye}"/>
+      <circle cx="${-dx + 1.2}" cy="${y - 1.7}" r="1.3" fill="#fff"/><circle cx="${dx + 1.2}" cy="${y - 1.7}" r="1.3" fill="#fff"/></g>
+    <g class="eyes-h"><path d="M${-dx - 4} ${y + 1} q4 -6 8 0 M${dx - 4} ${y + 1} q4 -6 8 0" stroke="${eye}" stroke-width="2.8" fill="none" stroke-linecap="round"/></g>
+    <g class="eyes-t"><path d="M${-dx - 3.5} ${y} h7" stroke="${eye}" stroke-width="2.8" stroke-linecap="round"/><ellipse cx="${dx}" cy="${y - 1}" rx="3.4" ry="4.4" fill="${eye}"/></g>
+    <path d="M-5 ${y + 9} q5 5 10 0" stroke="${OL}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <circle cx="${-dx - 6}" cy="${y + 7}" r="3" fill="#ff8fb1" opacity=".6"/><circle cx="${dx + 6}" cy="${y + 7}" r="3" fill="#ff8fb1" opacity=".6"/>`;
+}
+
+// Shared chibi body: legs, torso, arms. `extra` is drawn over the torso (scarf, straps…).
+function body({ shirt, pants, arm, shoe = '#3b4a66', extra = '' }) {
+  return `<rect x="-11" y="-16" width="8" height="15" rx="4" fill="${pants}" stroke="${OL}" stroke-width="2"/><rect x="3" y="-16" width="8" height="15" rx="4" fill="${pants}" stroke="${OL}" stroke-width="2"/>
+    <ellipse cx="-7" cy="-1.5" rx="6.5" ry="3.5" fill="${shoe}"/><ellipse cx="7" cy="-1.5" rx="6.5" ry="3.5" fill="${shoe}"/>
+    <g class="bip-arm-l"><rect x="-25" y="-36" width="10" height="19" rx="5" fill="${arm}" stroke="${OL}" stroke-width="2.2"/></g>
+    <g class="bip-arm-r"><rect x="15" y="-36" width="10" height="19" rx="5" fill="${arm}" stroke="${OL}" stroke-width="2.2"/></g>
+    <rect x="-17" y="-40" width="34" height="28" rx="11" fill="${shirt}" stroke="${OL}" stroke-width="2.6"/>${extra}`;
+}
+
+const AVATAR_ART = {
+  bip: () => `
       <ellipse cx="0" cy="-6" rx="13" ry="4.5" fill="#8fe9ff" opacity=".75"/>
       <g class="bip-arm-l"><rect x="-28" y="-32" width="11" height="19" rx="5.5" fill="#ffb37a" stroke="#263553" stroke-width="2.5"/></g>
       <g class="bip-arm-r"><rect x="17" y="-32" width="11" height="19" rx="5.5" fill="#ffb37a" stroke="#263553" stroke-width="2.5"/></g>
@@ -48,13 +68,90 @@ export function bip(x, y, s = 1, id = '', mood = '') {
       <g class="eyes-h"><path d="M-12.5 -57 q4.5 -7 9 0 M3.5 -57 q4.5 -7 9 0" stroke="#6ff5ff" stroke-width="3.2" fill="none" stroke-linecap="round"/></g>
       <g class="eyes-t"><ellipse cx="-8" cy="-58" rx="4.3" ry="2" fill="#6ff5ff"/><ellipse cx="8" cy="-60" rx="4.3" ry="5.6" fill="#6ff5ff"/></g>
       <path class="bip-mouth" d="M-5 -50 q5 4.5 10 0" stroke="#6ff5ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-      <circle cx="-15" cy="-49" r="2.6" fill="#ff8fb1" opacity=".7"/><circle cx="15" cy="-49" r="2.6" fill="#ff8fb1" opacity=".7"/>
-    </g>
+      <circle cx="-15" cy="-49" r="2.6" fill="#ff8fb1" opacity=".7"/><circle cx="15" cy="-49" r="2.6" fill="#ff8fb1" opacity=".7"/>`,
+
+  // kid with a red rescue cap
+  cap: () => `${body({ shirt: '#3aa0ff', pants: '#2f4f86', arm: '#ffd3b0',
+      extra: '<path d="M-9 -40 L0 -30 L9 -40Z" fill="#ffd23f" stroke="#263553" stroke-width="2" stroke-linejoin="round"/>' })}
+    <circle cx="-24" cy="-57" r="5" fill="#ffd3b0" stroke="${OL}" stroke-width="2"/><circle cx="24" cy="-57" r="5" fill="#ffd3b0" stroke="${OL}" stroke-width="2"/>
+    <circle cx="0" cy="-60" r="24" fill="#ffd3b0" stroke="${OL}" stroke-width="2.6"/>
+    <path d="M-23 -62 Q-22 -72 -12 -71 Q-4 -66 4 -71 Q14 -72 23 -62 L23 -70 Q0 -80 -23 -70Z" fill="#5a3522"/>
+    <path d="M-24 -68 Q-23 -92 0 -92 Q23 -92 24 -68Z" fill="#ff5a5f" stroke="${OL}" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M-2 -69 Q18 -76 36 -67 Q22 -63 -2 -66Z" fill="#d93d44" stroke="${OL}" stroke-width="2.2" stroke-linejoin="round"/>
+    <circle cx="-6" cy="-81" r="5" fill="#fff"/><path d="M-6 -84 v6 M-9 -81 h6" stroke="#ff5a5f" stroke-width="2.2" stroke-linecap="round"/>
+    ${face()}`,
+
+  // kid with two hair buns + star headband
+  buns: () => `${body({ shirt: '#9b6bff', pants: '#34507f', arm: '#f6c7a0',
+      extra: '<path d="M-11 -39 L-8 -13 M11 -39 L8 -13" stroke="#ff9f1c" stroke-width="3.2" stroke-linecap="round"/>' })}
+    <circle cx="-19" cy="-83" r="9.5" fill="#2b2233" stroke="${OL}" stroke-width="2.2"/><circle cx="19" cy="-83" r="9.5" fill="#2b2233" stroke="${OL}" stroke-width="2.2"/>
+    <circle cx="0" cy="-60" r="24" fill="#f6c7a0" stroke="${OL}" stroke-width="2.6"/>
+    <path d="M-24.5 -58 Q-26 -86 0 -86 Q26 -86 24.5 -58 Q20 -70 12 -71 Q4 -62 -4 -71 Q-18 -72 -24.5 -58Z" fill="#2b2233"/>
+    <path d="M-21 -74 Q0 -88 21 -74" stroke="#ffd23f" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="${starPath(0, -81, 5.5)}" fill="#ff6fa8" stroke="${OL}" stroke-width="1.2"/>
+    ${face()}`,
+
+  // fox pilot with goggles
+  fox: () => `<path d="M12 -16 Q40 -18 38 -44 Q31 -32 14 -28Z" fill="#ff9447" stroke="${OL}" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M38 -44 Q31 -32 26 -30 Q34 -38 34 -46Z" fill="#fff"/>
+    ${body({ shirt: '#ff9447', pants: '#ff9447', arm: '#ff9447', shoe: '#5a3522',
+      extra: '<ellipse cx="0" cy="-24" rx="9" ry="10" fill="#fff6ea"/><path d="M-15 -39 Q0 -30 15 -39 L12 -34 Q0 -26 -12 -34Z" fill="#2fb07a" stroke="#263553" stroke-width="1.8"/>' })}
+    <path d="M-22 -70 L-26 -94 L-6 -80Z M22 -70 L26 -94 L6 -80Z" fill="#ff9447" stroke="${OL}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M-20 -76 L-22 -88 L-12 -80Z M20 -76 L22 -88 L12 -80Z" fill="#ffc2a8"/>
+    <ellipse cx="0" cy="-60" rx="25" ry="22" fill="#ff9447" stroke="${OL}" stroke-width="2.6"/>
+    <path d="M-22 -54 Q-12 -58 0 -50 Q12 -58 22 -54 Q16 -38 0 -39 Q-16 -38 -22 -54Z" fill="#fff6ea"/>
+    <path d="M-24 -74 Q0 -80 24 -74" stroke="#5a3522" stroke-width="4" fill="none"/>
+    <circle cx="-9" cy="-75" r="6" fill="#7fd6ff" stroke="${OL}" stroke-width="2"/><circle cx="9" cy="-75" r="6" fill="#7fd6ff" stroke="${OL}" stroke-width="2"/>
+    <circle cx="-10.5" cy="-76.5" r="1.8" fill="#fff"/><circle cx="7.5" cy="-76.5" r="1.8" fill="#fff"/>
+    ${face(-60, 9)}<ellipse cx="0" cy="-52.5" rx="3.4" ry="2.4" fill="${OL}"/>`,
+
+  // panda with a rescue helmet + lamp
+  panda: () => `${body({ shirt: '#fff', pants: '#2b2b35', arm: '#2b2b35', shoe: '#2b2b35',
+      extra: '<path d="M-17 -30 H17 V-24 H-17Z" fill="#ff8a1f"/><path d="M-17 -30 H17" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>' })}
+    <circle cx="-22" cy="-72" r="8" fill="#2b2b35"/><circle cx="22" cy="-72" r="8" fill="#2b2b35"/>
+    <circle cx="0" cy="-58" r="24" fill="#fff" stroke="${OL}" stroke-width="2.6"/>
+    <ellipse cx="-9.5" cy="-56" rx="6.5" ry="8" fill="#2b2b35" transform="rotate(20 -9.5 -56)"/><ellipse cx="9.5" cy="-56" rx="6.5" ry="8" fill="#2b2b35" transform="rotate(-20 9.5 -56)"/>
+    <path d="M-23 -66 Q-22 -91 0 -91 Q22 -91 23 -66Z" fill="#ffc933" stroke="${OL}" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M-26 -66 H26" stroke="${OL}" stroke-width="3.2" stroke-linecap="round"/>
+    <circle cx="0" cy="-79" r="6" fill="#fff8c2" stroke="${OL}" stroke-width="2"/>
+    ${face(-56, 9.5, '#fff')}<ellipse cx="0" cy="-49.5" rx="3" ry="2.2" fill="${OL}"/>`,
+
+  // little dino explorer
+  dino: () => `<path d="M-12 -18 Q-38 -14 -40 -34 Q-30 -26 -14 -30Z" fill="#6fd36b" stroke="${OL}" stroke-width="2.2" stroke-linejoin="round"/>
+    ${body({ shirt: '#6fd36b', pants: '#6fd36b', arm: '#6fd36b', shoe: '#3f9a47',
+      extra: '<ellipse cx="0" cy="-25" rx="10" ry="11" fill="#fff3b8"/><path d="M-17 -34 L-12 -38 M17 -34 L12 -38" stroke="#ff9f1c" stroke-width="3" stroke-linecap="round"/>' })}
+    <path d="M-12 -82 L-8 -94 L-2 -84 L4 -96 L9 -84 L16 -92 L17 -78Z" fill="#ffb020" stroke="${OL}" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="-25" y="-83" width="50" height="46" rx="21" fill="#6fd36b" stroke="${OL}" stroke-width="2.6"/>
+    <ellipse cx="0" cy="-47" rx="15" ry="7" fill="#8fe28b"/>
+    <circle cx="-4" cy="-47" r="1.3" fill="${OL}"/><circle cx="4" cy="-47" r="1.3" fill="${OL}"/>
+    ${face(-62, 9)}`,
+};
+
+export const AVATARS = [
+  { id: 'bip', name: 'Rô-bốt Bíp' },
+  { id: 'cap', name: 'Mũ Đỏ' },
+  { id: 'buns', name: 'Tóc Búi' },
+  { id: 'fox', name: 'Cáo Phi Công' },
+  { id: 'panda', name: 'Gấu Trúc' },
+  { id: 'dino', name: 'Khủng Long' },
+];
+
+export function avatar(avatarId, x, y, s = 1, id = '', mood = '') {
+  const art = AVATAR_ART[avatarId] || AVATAR_ART.bip;
+  return `<g ${id ? `id="${id}"` : ''} class="bip-pos" transform="translate(${x} ${y}) scale(${s})" data-x="${x}" data-y="${y}" data-s="${s}">
+  <g class="bip av-${avatarId} ${mood}">
+    <ellipse cx="0" cy="0" rx="22" ry="5" fill="#0b1b33" opacity=".18"/>
+    <g class="bip-float">${art()}</g>
   </g></g>`;
 }
 
-// Standalone small Bíp avatar (for hint bubble / home).
-export const bipAvatar = (mood = 'happy') => svgWrap(bip(40, 96, 0.92, '', mood), { vb: '0 0 80 100', cls: 'bip-avatar' });
+// The player's hero, drawn with the avatar picked in the profile.
+export const hero = (x, y, s = 1, id = '', mood = '') => avatar(getState().profile.avatarId, x, y, s, id, mood);
+
+// Standalone avatar picture (hint bubble, profile, home, album).
+export const avatarSvg = (avatarId, mood = 'happy', cls = 'bip-avatar') =>
+  svgWrap(avatar(avatarId, 40, 97, 0.9, '', mood), { vb: '0 0 80 100', cls });
+export const heroAvatar = (mood = 'happy') => avatarSvg(getState().profile.avatarId, mood);
 
 // ── Scenery pieces ──
 export const cloud = (x, y, s = 1, o = 0.95) =>
@@ -159,6 +256,25 @@ export function sceneBackdrop(zoneId, P, T, { night = false } = {}) {
     s += `<path class="wave-line" d="M-400 160 q20 -6 40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0 t40 0" stroke="#fff" stroke-opacity=".5" stroke-width="2" fill="none"/>`;
   }
   return s;
+}
+
+// Evenly spread `count` group centres across horizontal spans ([[x0, x1], …]) — used by scenes that
+// draw a × b as b groups of a things. Returns { xs, cell } (cell = width available per group).
+export function spreadGroups(count, spans, maxCell = 46) {
+  const total = spans.reduce((s, [a, b]) => s + (b - a), 0);
+  const cell = Math.min(maxCell, total / count);
+  const used = cell * count;
+  const xs = [];
+  // walk the spans as one continuous strip, centred inside the total width
+  let offset = (total - used) / 2 + cell / 2;
+  for (let k = 0; k < count; k++, offset += cell) {
+    let o = offset;
+    for (const [a, b] of spans) {
+      if (o <= b - a) { xs.push(a + o); break; }
+      o -= b - a;
+    }
+  }
+  return { xs, cell };
 }
 
 // Groups-of-dots picture for hints: `count` groups of `size` dots (a × b = a taken b times).

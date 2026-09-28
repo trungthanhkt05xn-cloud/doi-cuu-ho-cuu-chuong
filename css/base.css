@@ -50,6 +50,10 @@ svg { display: block; }
 /* ── App shell ── */
 #app { position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
 .screen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: none; flex-direction: column; overflow: hidden; }
+/* screen swap: new screen fades in on top while the old one stays painted underneath (no blank frame) */
+.screen.active { z-index: 2; transition: opacity .18s ease-out; }
+.screen.active.leaving { z-index: 1; pointer-events: none; transition: none; }
+.screen.active.entering { opacity: 0; transition: none; }
 .screen.active { display: flex; animation: screen-in .28s ease-out; }
 @keyframes screen-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
 
@@ -112,9 +116,9 @@ svg { display: block; }
   justify-content: flex-start; padding: 4vh 16px calc(24px + var(--safe-b)); gap: 4vh;
 }
 .logo { text-align: center; animation: logo-in .6s cubic-bezier(.2, 1.4, .4, 1) both; }
-.logo-small {
-  display: inline-block; font-weight: 800; font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
-  color: #fff; background: rgba(34, 50, 77, .55); padding: 5px 12px; border-radius: 12px; margin-bottom: 10px;
+.logo-sub {
+  display: inline-block; font-weight: 800; font-size: 16px; color: #fff; background: rgba(34, 50, 77, .55);
+  padding: 5px 14px; border-radius: 14px; margin-top: 12px;
 }
 .logo h1 { display: flex; flex-direction: column; line-height: 1; font-weight: 900; font-size: clamp(40px, 11vw, 68px); color: #fff; letter-spacing: -.5px;
   text-shadow: 0 3px 0 #2a7fc0, 0 6px 0 #1f6aa3, 0 12px 20px rgba(20, 60, 110, .35); }
@@ -122,6 +126,9 @@ svg { display: block; }
 @keyframes logo-in { from { opacity: 0; transform: translateY(-20px) scale(.9); } to { opacity: 1; transform: none; } }
 .home-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; animation: logo-in .6s .15s cubic-bezier(.2, 1.4, .4, 1) both; }
 .home-actions .btn-primary.big { animation: breathe 2.4s ease-in-out infinite 1s; }
+.home-hello { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 20px; background: rgba(255, 255, 255, .9); padding: 2px 16px 2px 6px; border-radius: 20px; max-width: 92vw; }
+.home-hello svg { width: 40px; height: 50px; flex: 0 0 auto; }
+.home-hello span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-meta { font-weight: 800; color: var(--ink); background: rgba(255, 255, 255, .88); padding: 6px 14px; border-radius: 14px; font-size: 17px; text-align: center; max-width: 92vw; }
 @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
 .drift { animation: drift 30s linear infinite alternate; }
@@ -153,6 +160,35 @@ svg { display: block; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes pop-in { from { opacity: 0; transform: translate(-50%, -46%) scale(.92); } }
 
+/* ── Profile (avatar + nickname) ── */
+.profile-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; background: linear-gradient(180deg, #bfe6ff, #fff4d6); }
+.profile-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 calc(16px + var(--safe-r)) calc(24px + var(--safe-b)) calc(16px + var(--safe-l)); }
+.pf-step { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; animation: pf-in .25s ease-out; }
+@keyframes pf-in { from { opacity: 0; transform: translateY(10px); } }
+.pf-step h1 { font-size: 26px; font-weight: 900; }
+.avatar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+.avatar-opt { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px 8px; border-radius: 22px; background: #fff;
+  box-shadow: 0 4px 0 #d6deea, 0 6px 14px rgba(34, 50, 77, .08); border: 3px solid transparent; transition: transform .12s; }
+.avatar-opt:active { transform: scale(.96); }
+.avatar-opt.on { border-color: var(--primary); background: #fff4e3; transform: scale(1.04); }
+.avatar-opt small { font-weight: 800; font-size: 14px; color: var(--ink-soft); }
+.pf-av { width: 82px; height: 102px; }
+.pf-av.big { width: 120px; height: 150px; }
+.pf-q { font-size: 22px; font-weight: 900; line-height: 1.3; }
+.pf-input { width: min(100%, 360px); min-height: 56px; font: inherit; font-size: 24px; font-weight: 800; text-align: center; color: var(--ink);
+  border: 3px solid #9cc2ff; border-radius: 18px; padding: 0 14px; background: #fff; -webkit-user-select: text; user-select: text; }
+.pf-input:focus { outline: none; border-color: #1f7cff; box-shadow: 0 0 0 4px rgba(31, 124, 255, .18); }
+.pf-input::placeholder { color: #aab4c6; font-weight: 700; font-size: 18px; }
+.pf-actions .btn { min-width: 132px; }
+@media (min-aspect-ratio: 5/4) and (max-height: 520px) {
+  .avatar-grid { grid-template-columns: repeat(6, 1fr); }
+  .pf-av { width: 64px; height: 80px; }
+  .pf-av.big { width: 72px; height: 90px; }
+  .pf-step { gap: 10px; }
+  .pf-step h1 { font-size: 22px; }
+  .pf-q { font-size: 19px; }
+}
+
 /* ── Album ── */
 .album-screen { flex: 1; display: flex; flex-direction: column; background: linear-gradient(180deg, #bfe6ff, #fff4d6); min-height: 0; }
 .album-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px calc(16px + var(--safe-r)) calc(28px + var(--safe-b)) calc(16px + var(--safe-l)); display: flex; flex-direction: column; gap: 14px; max-width: 760px; width: 100%; margin: 0 auto; }
@@ -176,9 +212,17 @@ svg { display: block; }
 .gem { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .gem svg { width: 50px; height: 64px; }
 .gem b { font-size: 18px; }
-.gem small { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.gem small { font-size: 12px; font-weight: 700; color: var(--ink-soft); min-height: 1.3em; white-space: nowrap; }
+.me-card { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.me-av svg { width: 56px; height: 70px; }
+.me-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.me-name small { font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+.me-name b { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-card .btn { min-height: 48px; padding: 0 16px; font-size: 17px; }
 .gem-bg { fill: #e9eef6; }
 .gem-fill { fill: #6fd3ff; }
+.gem.none { opacity: .55; }
+.gem.grow .gem-fill { fill: #8fd8ff; }
 .gem.ok .gem-fill { fill: #7fe08c; }
 .gem.strong .gem-fill { fill: #ffcf3f; }
 .gem-edge { fill: none; stroke: #9fb0c8; stroke-width: 2.5; stroke-linejoin: round; }

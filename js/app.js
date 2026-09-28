@@ -1,10 +1,11 @@
 // App shell: boot, screen routing (with history so iOS swipe-back stays in the game), Home, Settings.
-import { load, save, getState, hasSave, resetProgress } from './state.js';
+import { load, save, getState, hasSave, hasProfile, nickname, resetProgress } from './state.js';
 import { setSoundEnabled, unlockAudio, play } from './audio.js';
 import { renderMap } from './ui/map.js';
 import { renderMission } from './ui/missionView.js';
 import { renderAlbum } from './ui/album.js';
-import { bip, cloud, roundTree, pine, house, windmill, lighthouse, palm, crystal, emo, THEMES } from './ui/art.js';
+import { renderProfile } from './ui/profile.js';
+import { hero, heroAvatar, cloud, roundTree, pine, house, windmill, lighthouse, palm, crystal, emo, THEMES } from './ui/art.js';
 import { totalStars, currentMission, allDone } from './game/progression.js';
 
 const screens = {
@@ -12,19 +13,46 @@ const screens = {
   map: document.getElementById('screen-map'),
   mission: document.getElementById('screen-mission'),
   album: document.getElementById('screen-album'),
+  profile: document.getElementById('screen-profile'),
 };
 let currentScreen = null;
+let navToken = 0;
 
+// Screen swap without a blank frame: the new screen is built on top of the old one (which stays
+// painted underneath), fades in over ~180 ms, then the old one is hidden and its DOM freed.
 function show(name, params = {}, mode = 'push') {
-  Object.entries(screens).forEach(([k, el]) => {
-    el.classList.toggle('active', k === name);
-    if (k !== name && k !== 'home') el.innerHTML = ''; // free DOM of hidden screens
-  });
+  const prev = currentScreen && currentScreen !== name ? screens[currentScreen] : null;
+  const next = screens[name];
   currentScreen = name;
+  const token = ++navToken;
+  if (prev) prev.classList.add('leaving');
+  next.classList.add('active', 'entering');
   if (name === 'home') renderHome();
   if (name === 'map') renderMap(screens.map, mapHandlers, params);
   if (name === 'mission') renderMission(screens.mission, params.id, missionHandlers);
-  if (name === 'album') renderAlbum(screens.album, { onBack: () => show('map', {}, 'replace') });
+  if (name === 'album') renderAlbum(screens.album, { onBack: () => show('map', {}, 'replace'), onEditProfile: () => show('profile', { mode: 'edit' }) });
+  if (name === 'profile') {
+    const done = () => show(params.mode === 'edit' ? 'album' : 'map', {}, 'replace');
+    renderProfile(screens.profile, { mode: params.mode, onDone: done, onBack: () => show(params.mode === 'edit' ? 'album' : 'home', {}, 'replace') });
+  }
+  const settle = () => {
+    if (token !== navToken) return;   // a newer navigation will settle
+    Object.entries(screens).forEach(([k, el]) => {
+      el.classList.remove('entering', 'leaving');
+      if (k === currentScreen) return;
+      el.classList.remove('active');
+      if (k !== 'home') el.innerHTML = ''; // free DOM of hidden screens
+    });
+  };
+  if (prev) {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      next.classList.remove('entering');
+      setTimeout(settle, 200);
+    }));
+  } else {
+    next.classList.remove('entering');
+    settle();
+  }
   try {
     const entry = { s: name === 'mission' ? 'map' : name };
     if (mode === 'push') history.pushState(entry, '');
@@ -68,7 +96,7 @@ function homeArt() {
     <path d="M-300 600 Q60 560 200 590 Q330 615 700 580 L700 900 L-300 900Z" fill="${V.ground}"/>
     <path d="M150 700 Q180 640 200 600 Q220 640 250 700Z" fill="${V.path}" opacity=".9"/>
     <g class="home-npcs">${emo(300, 598, 30, '🦆')}${emo(342, 606, 28, '🐱')}${emo(64, 604, 28, '🦉')}${emo(100, 612, 26, '🦦')}</g>
-    ${bip(200, 668, 1.35, 'home-bip', 'happy')}
+    ${hero(200, 668, 1.35, 'home-bip', 'happy')}
   </svg>`;
 }
 
@@ -85,15 +113,17 @@ function renderHome() {
     </div>
     <div class="home-center">
       <div class="logo">
-        <div class="logo-small">Math Rescue Adventure</div>
         <h1><span>Đội Cứu Hộ</span><span class="accent">Cửu Chương</span></h1>
+        <div class="logo-sub">Giải cứu thế giới bằng phép nhân!</div>
       </div>
       <div class="home-actions">
+        ${saved && hasProfile() ? `<div class="home-hello">${heroAvatar('happy')}<span>Chào <b class="nick"></b>!</span></div>` : ''}
         ${saved ? `<button class="btn btn-primary big" data-act="continue">▶ Chơi tiếp</button>
           <div class="home-meta">⭐ ${stars} sao${next ? ` · Tiếp theo: ${next.npc.e} ${next.title}` : allDone() ? ' · 🏆 Anh hùng Cửu Chương' : ''}</div>` : '<button class="btn btn-primary big" data-act="start">Bắt đầu phiêu lưu ▶</button>'}
       </div>
     </div>
   </div>`;
+  screens.home.querySelectorAll('.nick').forEach((n) => { n.textContent = nickname(); });   // user text: textContent only
 }
 
 screens.home.addEventListener('click', (e) => {
@@ -105,7 +135,8 @@ screens.home.addEventListener('click', (e) => {
     getState().started = true;
     save();
     play('tap');
-    show('map');
+    // First time (or a save from before profiles existed): pick an identity once, progress untouched.
+    show(hasProfile() ? 'map' : 'profile', { mode: 'onboard' });
   } else if (act === 'sound') {
     toggleSound();
     b.textContent = getState().settings.sound ? '🔊' : '🔇';

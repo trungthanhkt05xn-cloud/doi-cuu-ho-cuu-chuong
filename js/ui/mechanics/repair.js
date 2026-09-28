@@ -1,6 +1,8 @@
-// Mechanic B — REPAIR: every correct answer lays one plank; Bíp walks onto it.
-import { THEMES, svgWrap, defs, sceneBackdrop, bip, emo, roundTree, house, pine, mushroom, rock, cloud, palm, crystal, flower } from '../art.js';
-import { moveG, flyTo, wait, svgBurst, retrigger } from '../fx.js';
+// Mechanic B — REPAIR: each bridge section needs a × b planks, delivered as b bundles of a planks
+// (a × b = "a được lấy b lần", same picture as the hint). A correct answer sends exactly those bundles
+// into the gap, counting up as they land (a, 2a, 3a …), and the section is built with the total on it.
+import { THEMES, svgWrap, defs, sceneBackdrop, hero as heroArt, emo, roundTree, house, pine, mushroom, rock, cloud, palm, crystal, flower, spreadGroups } from '../art.js';
+import { moveG, wait, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
 
 export function create({ root, mission, zone, P }) {
@@ -56,33 +58,74 @@ export function create({ root, mission, zone, P }) {
       <rect class="slot-empty" x="${x}" y="${deckY - 6}" width="${slotW - 4}" height="14" rx="4"/>
       <g class="plank" opacity="0"><rect x="${x}" y="${deckY - 7}" width="${slotW - 4}" height="16" rx="4" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="2"/>
       <circle cx="${x + 5}" cy="${deckY + 1}" r="1.6" fill="${T.woodDark}"/><circle cx="${x + slotW - 9}" cy="${deckY + 1}" r="1.6" fill="${T.woodDark}"/></g>
+      <text class="plank-num" x="${x + (slotW - 4) / 2}" y="${deckY + 1}" dy=".35em" text-anchor="middle"></text>
       <text class="slot-q" x="${x + (slotW - 4) / 2}" y="${deckY - 18}" text-anchor="middle">?</text></g>`;
   }
   // NPC waiting on the far bank + hero
   s += `<g transform="translate(346 ${deckY - 26})"><g id="${P}npc" class="npc wait">${emo(0, 0, 42, mission.npc.e)}</g></g>`;
   s += `<g transform="translate(346 ${deckY - 64})"><g class="call-bubble" id="${P}call"><rect x="-16" y="-14" width="32" height="24" rx="10" fill="#fff"/><text x="0" y="3" text-anchor="middle" font-size="16" font-weight="800" fill="#ff7a2a">!</text></g></g>`;
-  s += bip(58, deckY - 2, 0.62, `${P}hero`);
+  s += heroArt(58, deckY - 2, 0.62, `${P}hero`);
+  // supply of plank bundles for the current section (filled per question)
+  s += `<g id="${P}supply" class="supply"></g>`;
   if (zone.id === 'village') s += cloud(200, 20, 0.5, 0.7);
 
   root.innerHTML = svgWrap(s, { cls: 'scene-svg', par: 'xMidYMax meet' });
   const svg = root.querySelector('svg');
   const hero = svg.querySelector(`#${P}hero`);
   const slot = (i) => svg.querySelector(`#${P}slot${i}`);
+  const supply = svg.querySelector(`#${P}supply`);
+  const baseY = 126;   // bundles stand on this line, above the rope rail and the hero's head
+  let cur = null;
+
+  // b bundles × a planks, with a short caption; the target section shows "?".
+  function drawSupply(q) {
+    const { xs, cell } = spreadGroups(q.b, [[30, 370]], 62);
+    const pw = Math.min(38, cell - 7);
+    const ph = 6, gap = 1.8;
+    let g = `<g class="caption" transform="translate(200 ${baseY - q.a * (ph + gap) - 16})"><rect x="-80" y="-12" width="160" height="24" rx="12"/>
+      <text text-anchor="middle" dy=".35em">Mỗi bó ${q.a} tấm · ${q.b} bó</text></g>`;
+    xs.forEach((x, k) => {
+      let planks = '';
+      for (let i = 0; i < q.a; i++) {
+        planks += `<rect x="${-pw / 2}" y="${-(i + 1) * (ph + gap)}" width="${pw}" height="${ph}" rx="1.8" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="1.1"/>`;
+      }
+      const h = q.a * (ph + gap);
+      planks += `<rect x="${-pw / 4 - 1}" y="${-h - 1}" width="2.4" height="${h + 1}" fill="#6b3f1a" opacity=".75"/><rect x="${pw / 4 - 1}" y="${-h - 1}" width="2.4" height="${h + 1}" fill="#6b3f1a" opacity=".75"/>`;
+      g += `<g class="bundle" style="--k:${k}" transform="translate(${x} ${baseY})" data-x="${x}" data-y="${baseY}" data-s="1">${planks}</g>`;
+    });
+    supply.innerHTML = g;
+  }
 
   return {
-    answerKind: 'choices', skin: 'plank', optionCount: 3,
-    icon: '🔨', instruction: 'Chọn tấm ván có số đúng!',
-    correctLine: ['Cầu chắc hơn rồi!', 'Chuẩn luôn!', 'Thêm một tấm!'],
+    answerKind: 'choices', skin: 'plank', optionCount: 3, floatAt: 0.8,
+    icon: '🔨', instruction: 'Đoạn cầu cần bao nhiêu tấm ván?',
+    correctLine: ['Cầu chắc hơn rồi!', 'Chuẩn luôn!', 'Đủ ván rồi!'],
     setQuestion(q, i) {
+      cur = q;
       svg.querySelectorAll('.slot.target').forEach((el) => el.classList.remove('target'));
       slot(i).classList.add('target');
+      drawSupply(q);
     },
-    async onCorrect(i, fromEl) {
+    async onCorrect(i) {
       const sl = slot(i);
-      await flyTo(fromEl, sl.querySelector('.slot-empty'), { scaleTo: 0.45 });
+      const q = cur;
+      const tx = gapL + slotW * (i + 0.5);
+      const label = sl.querySelector('.slot-q');
+      supply.querySelector('.caption').classList.add('fade-out');
+      // Bundles drop into the gap one after another; the section counts up a, 2a, 3a …
+      const bundles = [...supply.querySelectorAll('.bundle')];
+      const step = bundles.length > 6 ? 70 : 110;
+      await Promise.all(bundles.map((b, k) => wait(k * step).then(() => moveG(b, tx, deckY + 2, 340, { hop: 26, scale: 0.35 })).then(() => {
+        b.style.opacity = '0';
+        label.textContent = String(q.a * (k + 1));
+        retrigger(label, 'tick');
+        play('count', k);
+      })));
       sl.classList.remove('target');
       sl.classList.add('filled');
       sl.querySelector('.plank').setAttribute('opacity', '1');
+      sl.querySelector('.plank-num').textContent = String(q.answer);
+      supply.innerHTML = '';
       play('place');
       await moveG(hero, gapL + slotW * (i + 0.5), deckY - 4, 420, { hop: 16 });
       play('step');
@@ -90,6 +133,7 @@ export function create({ root, mission, zone, P }) {
     async onWrong() {
       const sl = svg.querySelector('.slot.target');
       if (sl) retrigger(sl, 'wobble');
+      retrigger(supply, 'wobble');   // nudge the eye back to the bundles: count them!
     },
     async onComplete() {
       await moveG(hero, 318, deckY - 4, 500, { hop: 12 });

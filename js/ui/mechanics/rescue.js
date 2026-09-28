@@ -1,6 +1,6 @@
 // Mechanic D — RESCUE: a friend is stuck down low. Each correct balloon (lantern / bubble) ties on and
 // lifts them one level. Wrong balloons just drift away — nothing is lost.
-import { THEMES, svgWrap, defs, sceneBackdrop, bip, emo, roundTree, pine, mushroom, crystal, rock, flower, fence } from '../art.js';
+import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, roundTree, pine, mushroom, crystal, rock, flower, fence } from '../art.js';
 import { moveG, flyTo, wait, svgBurst, place } from '../fx.js';
 import { play } from '../../audio.js';
 
@@ -64,13 +64,13 @@ export function create({ root, mission, zone, P }) {
     s += `<path d="M138 ${rimY} L138 262 Q200 282 262 262 L262 ${rimY} Q200 ${rimY + 16} 138 ${rimY}Z" fill="${T.stone}"/>`;
     s += `<path d="M138 232 Q200 250 262 232 M170 ${rimY + 12} v22 M230 ${rimY + 12} v22 M200 ${rimY + 36} v24" stroke="${T.stoneDark}" stroke-width="2.5" fill="none"/>`;
     s += `<path d="M138 ${rimY} Q200 ${rimY + 16} 262 ${rimY}" stroke="#e7dfd2" stroke-width="6" fill="none" stroke-linecap="round"/>`;
-    s += bip(84, 266, 0.6, `${P}hero`);
+    s += hero(84, 266, 0.6, `${P}hero`);
   } else if (zone.id === 'forest') {
     s += `<path d="M130 ${rimY} Q200 ${rimY + 22} 270 ${rimY}" stroke="${T.groundDark}" stroke-width="6" fill="none"/>`;
     s += rock(128, rimY + 10, 0.6, T.stone, T.stoneDark) + rock(276, rimY + 12, 0.7, T.stone, T.stoneDark);
-    s += bip(78, 264, 0.6, `${P}hero`);
+    s += hero(78, 264, 0.6, `${P}hero`);
   } else {
-    s += `<g transform="translate(76 150)"><path d="M-30 -6 L30 -6 L22 10 L-22 10Z" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="3"/>${bip(0, -4, 0.5, `${P}hero`)}</g>`;
+    s += `<g transform="translate(76 150)"><path d="M-30 -6 L30 -6 L22 10 L-22 10Z" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="3"/>${hero(0, -4, 0.5, `${P}hero`)}</g>`;
     s += `<path class="wave-line" d="M-400 150 q15 -5 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0 t30 0" stroke="#fff" stroke-opacity=".8" stroke-width="3" fill="none"/>`;
   }
 

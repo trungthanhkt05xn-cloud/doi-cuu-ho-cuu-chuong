@@ -1,6 +1,6 @@
 // Mechanic C — PATH FINDING: three trails, each signpost shows a number. The right one leads on;
-// a wrong one gets gently blocked (bush / reef) and Bíp tries again. The destination grows as you approach.
-import { THEMES, svgWrap, defs, sceneBackdrop, bip, emo, windmill, roundTree, pine, bush, rock, palm, mushroom, crystal, flower } from '../art.js';
+// a wrong one gets gently blocked (bush / reef) and the hero tries again. The destination grows as you approach.
+import { THEMES, svgWrap, defs, sceneBackdrop, hero as heroArt, emo, windmill, roundTree, pine, bush, rock, palm, mushroom, crystal, flower } from '../art.js';
 import { tween, wait, place, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
 
@@ -73,8 +73,8 @@ export function create({ root, mission, zone, P, pick }) {
       <rect x="-36" y="-48" width="72" height="76" fill="transparent"/></g>`;
   }
   if (cove) {
-    s += `<g id="${P}hero" data-x="200" data-y="276"><path d="M-30 -6 L30 -6 L22 10 L-22 10Z" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="3"/><rect x="-2" y="-44" width="4" height="40" fill="${T.woodDark}"/><path d="M2 -42 L24 -16 L2 -14Z" fill="#fff"/>${bip(-10, -2, 0.5)}</g>`;
-  } else s += bip(200, 276, 0.62, `${P}hero`);
+    s += `<g id="${P}hero" data-x="200" data-y="276"><path d="M-30 -6 L30 -6 L22 10 L-22 10Z" fill="${T.wood}" stroke="${T.woodDark}" stroke-width="3"/><rect x="-2" y="-44" width="4" height="40" fill="${T.woodDark}"/><path d="M2 -42 L24 -16 L2 -14Z" fill="#fff"/>${heroArt(-10, -2, 0.5)}</g>`;
+  } else s += heroArt(200, 276, 0.62, `${P}hero`);
   s += `<rect id="${P}fade" x="-400" y="-300" width="1200" height="900" fill="#fff" opacity="0" pointer-events="none"/>`;
 
   root.innerHTML = svgWrap(s, { cls: 'scene-svg', par: 'xMidYMax meet' });

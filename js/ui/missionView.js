@@ -2,9 +2,9 @@
 // The mechanic module owns the scene; this view owns the answer UI and the flow.
 import { missionById, zoneById } from '../game/catalog.js';
 import { MissionSession } from '../game/missionEngine.js';
-import { getState, save } from '../state.js';
+import { getState, save, nickname } from '../state.js';
 import { play, unlockAudio } from '../audio.js';
-import { bipAvatar, groupsPicture, starPath } from './art.js';
+import { heroAvatar, groupsPicture, starPath } from './art.js';
 import { wait, floatText, confetti, retrigger } from './fx.js';
 import { balloonShape } from './mechanics/rescue.js';
 import * as repair from './mechanics/repair.js';
@@ -38,7 +38,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       <div class="m-scene">
         <div class="scene-host"></div>
         <div class="hint-bubble" hidden role="status" aria-live="polite">
-          <div class="hint-avatar">${bipAvatar('happy')}</div>
+          <div class="hint-avatar">${heroAvatar('happy')}</div>
           <div class="hint-content"></div>
           <button class="hint-close" aria-label="Đóng gợi ý">✕</button>
         </div>
@@ -50,8 +50,8 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       <div class="m-panel">
         <div class="phase phase-intro">
           <div class="intro-card">
-            <div class="intro-npc">${mission.npc.e}</div>
-            <h2>${esc(mission.title)}</h2>
+            <div class="intro-duo"><span class="intro-av">${heroAvatar('happy')}</span><span class="intro-npc">${mission.npc.e}</span></div>
+            <h2><span class="nick"></span> ơi, ${esc(mission.npc.name)} cần bạn!</h2>
             <p>${esc(mission.intro)}</p>
             <button class="btn btn-primary big" data-act="start">Bắt đầu! ▶</button>
           </div>
@@ -78,10 +78,14 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   const answersEl = $('.answers');
   const eqEl = $('.equation');
   const hintEl = $('.hint-bubble');
+  // The nickname is user text: always set with textContent, never through innerHTML.
+  const fillNick = (el) => el.querySelectorAll('.nick').forEach((n) => { n.textContent = nickname(); });
+  fillNick(root);
   let busy = true;
   let phase = 'intro';
   let typed = '';
   let optionEls = [];
+  let okKey = null;
   let combo = 0;
   const heroMood = (m) => {
     const b = sceneHost.querySelector('.bip');
@@ -125,11 +129,36 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       if (k === 'ok') return '<button class="key key-ok" data-k="ok" aria-label="Xong">✓</button>';
       return `<button class="key" data-k="${k}">${k}</button>`;
     }).join('');
-    answersEl.querySelectorAll('.key').forEach((b) => b.addEventListener('click', () => onKey(b.dataset.k)));
+    okKey = answersEl.querySelector('.key-ok');
+    // One physical touch = one digit, while repeated digits (44, 66, 88) stay easy to type:
+    // - act on pointerdown; a second contact on a key that is still held down is ignored;
+    // - the click the browser synthesises after that same touch is ignored;
+    // - a same-digit press < 70 ms after the previous one is finger bounce (a deliberate re-tap is far slower).
+    const held = new Map();   // pointerId -> key
+    let last = { k: null, t: -1e9 };
+    answersEl.addEventListener('pointerdown', (e) => {
+      const b = e.target.closest('.key');
+      if (!b || b.disabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      const k = b.dataset.k;
+      if ([...held.values()].includes(k)) return;
+      held.set(e.pointerId, k);
+      const bounce = /^\d$/.test(k) && last.k === k && e.timeStamp - last.t < 70;
+      last = { k, t: e.timeStamp };
+      b.dataset.ptr = String(e.timeStamp);
+      if (!bounce) onKey(k);
+    });
+    ['pointerup', 'pointercancel'].forEach((t) => answersEl.addEventListener(t, (e) => held.delete(e.pointerId)));
+    answersEl.addEventListener('click', (e) => {
+      const b = e.target.closest('.key');
+      if (!b) return;
+      if (b.dataset.ptr && e.timeStamp - Number(b.dataset.ptr) < 1000) { delete b.dataset.ptr; return; }
+      onKey(b.dataset.k);   // keyboard / assistive-tech activation (no pointerdown before it)
+    });
   }
 
   function renderEquation(q) {
     const slot = mech.answerKind === 'keypad' ? `<span class="ans-slot typing">${typed || '<i class="caret"></i>'}</span>` : '<span class="ans-slot">?</span>';
+    if (okKey) okKey.disabled = !typed;
     eqEl.innerHTML = `<span class="n">${q.a}</span><span class="op">×</span><span class="n">${q.b}</span><span class="op">=</span>${slot}`;
     eqEl.dataset.a = q.a;
     eqEl.dataset.b = q.b;
@@ -138,6 +167,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   function onKey(k) {
     if (busy || phase !== 'play') return;
     unlockAudio();
+    eqEl.classList.remove('tutorial');
     if (k === 'del') { typed = typed.slice(0, -1); play('key'); }
     else if (k === 'ok') { if (typed) onAnswer(+typed, null); return; }
     else if (typed.length < 2) { typed += k; play('key'); }
@@ -165,13 +195,18 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   function nextStep() {
     const { q, options } = session.next();
     typed = '';
-    renderEquation(q);
     if (mech.answerKind === 'keypad') { if (!answersEl.classList.contains('keypad')) renderKeypad(); }
     else renderChoices(options);
+    renderEquation(q);
     mech.setQuestion(q, session.step, options);
     heroMood('');
     retrigger(eqEl, 'pop');
-    if (firstTimeType && session.step === 0) answersEl.classList.add('tutorial');
+    // A mistake from a few turns ago comes back once — say so, kindly.
+    const again = q.source === 'remediation';
+    $('.task-card').classList.toggle('again', again);
+    $('.task-instr').textContent = again ? '🔁 Phép này quay lại nè!' : mech.instruction;
+    // First time with this mechanic: point at where to answer — never at one particular answer.
+    if (firstTimeType && session.step === 0) (mech.answerKind === 'keypad' ? eqEl : answersEl).classList.add('tutorial');
     busy = false;
   }
 
@@ -179,6 +214,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (busy || phase !== 'play') return;
     unlockAudio();
     answersEl.classList.remove('tutorial');
+    eqEl.classList.remove('tutorial');
     // Taps may come from scene objects (path signs) — mirror them onto the matching button.
     if (!el || !el.classList.contains('opt')) el = optionEls.find((b) => +b.dataset.value === value) || null;
     if (el && el.disabled) return;
@@ -193,8 +229,9 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       play('correct');
       heroMood('happy');
       combo = session.hintLevel === 0 ? combo + 1 : 0;
-      const line = combo >= 3 ? `🔥 ${combo} lần liền! Siêu quá!` : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
-      floatText(sceneHost, line, 'good');
+      const recovered = session.q.source === 'remediation' && session.hintLevel === 0;
+      const line = recovered ? '✓ Nhớ rồi! Giỏi quá!' : combo >= 3 ? `🔥 ${combo} lần liền! Siêu quá!` : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
+      floatText(sceneHost, line, 'good', mech.floatAt || 0.35);   // mechanics keep it off their a × b groups
       await wait(mech.answerKind === 'keypad' ? 280 : 120);
       await mech.onCorrect(stepIdx, el, value);
       updatePips();
@@ -231,15 +268,20 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (r.sticker) extras += `<div class="reward-chip"><span class="big">${r.sticker.e}</span> Sticker mới: <b>${esc(r.sticker.name)}</b></div>`;
     if (r.badge) extras += `<div class="reward-chip badge"><span class="big">${r.badge.icon}</span> <b>${esc(r.badge.name)}</b></div>`;
     if (r.newZone) extras += `<div class="reward-chip zone">🗺️ Mở vùng mới: <b>${esc(r.newZone.name)}</b></div>`;
+    // Say why this many stars in one short line; invite a replay only while 3 stars are still to win.
+    const why = `${r.firstTry}/${r.total} câu đúng ngay lần đầu — ${r.stars} ⭐`;
+    const next = r.best < 3 ? 'Chơi lại để thử lấy 3 ⭐' : r.stars < 3 ? `Kỷ lục của bạn vẫn là ${r.best} ⭐` : '';
     box.innerHTML = `<div class="success-card">
       <h2>${title}</h2>
       <div class="stars-row">${[0, 1, 2].map(() => starSvg(false)).join('')}</div>
-      <p class="saved">${mission.npc.e} ${esc(mission.npc.name)} vui lắm!</p>
+      <p class="why">${why}</p>${next ? `<p class="why-next">${next}</p>` : ''}
+      <p class="saved">${mission.npc.e} Cảm ơn <span class="nick"></span>!</p>
       ${extras}
       <div class="row">
         <button class="btn btn-light" data-act="replay">↺ Chơi lại</button>
         <button class="btn btn-primary" data-act="continue">Tiếp tục ▶</button>
       </div></div>`;
+    fillNick(box);
     box.hidden = false;
     play('fanfare');
     confetti(mission.finale ? 60 : 36);
@@ -301,8 +343,11 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   // Desktop keyboard support.
   if (keyHandler) document.removeEventListener('keydown', keyHandler);
   keyHandler = (e) => {
+    if (e.defaultPrevented) return;   // e.g. the Enter that opened this mission from the map
     if (phase === 'intro' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); root.querySelector('[data-act="start"]').click(); return; }
     if (phase !== 'play') return;
+    // Enter/Space on a focused button already activates that button — don't act twice.
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement.tagName === 'BUTTON') return;
     if (mech.answerKind === 'keypad') {
       if (/^[0-9]$/.test(e.key)) onKey(e.key);
       else if (e.key === 'Backspace') onKey('del');
