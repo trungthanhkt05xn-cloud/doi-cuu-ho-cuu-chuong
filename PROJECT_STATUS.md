@@ -52,3 +52,5 @@ Local QC complete; waiting for owner review + real iPhone/iPad Safari playtest b
 
 ## Roadmap candidates (not in this pass)
 Groups-in-scene for Unlock / Path / Rescue, PWA/offline, parent summary (see docs/09_FUTURE_ROADMAP.md).
+
+Cloudflare preview trigger - V1.0 candidate.
