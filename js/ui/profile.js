@@ -3,6 +3,7 @@
 import { getState, save, cleanNickname } from '../state.js';
 import { AVATARS, avatarSvg } from './art.js';
 import { play, unlockAudio } from '../audio.js';
+import { t } from '../i18n.js';
 
 export function renderProfile(host, { mode = 'onboard', onDone, onBack }) {
   const profile = getState().profile;
@@ -11,23 +12,23 @@ export function renderProfile(host, { mode = 'onboard', onDone, onBack }) {
 
   host.innerHTML = `
   <div class="profile-screen">
-    <header class="topbar"><button class="icon-btn" data-act="back" aria-label="Quay lại">←</button><div class="spacer"></div></header>
+    <header class="topbar"><button class="icon-btn" data-act="back" aria-label="${t('ui.back')}">←</button><div class="spacer"></div></header>
     <div class="profile-body">
       <section class="pf-step pf-pick">
-        <h1>Chọn nhân vật của bạn</h1>
+        <h1>${t('pf.pick')}</h1>
         <div class="avatar-grid">${AVATARS.map((a) => `
-          <button class="avatar-opt ${a.id === picked ? 'on' : ''}" data-id="${a.id}" aria-label="${a.name}" aria-pressed="${a.id === picked}">
-            ${avatarSvg(a.id, 'happy', 'pf-av')}<small>${a.name}</small></button>`).join('')}
+          <button class="avatar-opt ${a.id === picked ? 'on' : ''}" data-id="${a.id}" aria-label="${t('av.' + a.id)}" aria-pressed="${a.id === picked}">
+            ${avatarSvg(a.id, 'happy', 'pf-av')}<small>${t('av.' + a.id)}</small></button>`).join('')}
         </div>
       </section>
       <section class="pf-step pf-name" hidden>
         <div class="pf-me"></div>
-        <label class="pf-q" for="pf-nick">Bạn muốn mọi người gọi mình là gì?</label>
+        <label class="pf-q" for="pf-nick">${t('pf.ask')}</label>
         <input id="pf-nick" class="pf-input" type="text" maxlength="24" autocomplete="off" autocorrect="off" spellcheck="false"
-          autocapitalize="words" enterkeyhint="done" placeholder="Ví dụ: Bin, Na, Minh">
+          autocapitalize="words" enterkeyhint="done" placeholder="${t('pf.placeholder')}">
         <div class="row pf-actions">
-          ${edit ? '' : '<button class="btn btn-light" data-act="skip">Bỏ qua</button>'}
-          <button class="btn btn-primary" data-act="done">Xong ✓</button>
+          ${edit ? '' : `<button class="btn btn-light" data-act="skip">${t('pf.skip')}</button>`}
+          <button class="btn btn-primary" data-act="done">${t('pf.done')}</button>
         </div>
       </section>
     </div>

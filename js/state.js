@@ -1,4 +1,5 @@
 // Game state + localStorage persistence (schema versioned, tolerant of broken/missing data).
+import { t, LANGS } from './i18n.js';
 
 const KEY = 'mra.save.v1';   // storage key stays the same across schema versions
 const VERSION = 2;           // v2: profile (nickname/avatar) + wrongFactQueue
@@ -22,7 +23,7 @@ export function defaultState() {
       wrongFactQueue: [],   // remediation after a mistake: { key, dueQ } (see learning/engine.js)
       recent: [],           // last presented fact keys
     },
-    settings: { sound: true },
+    settings: { sound: true, language: 'vi' },   // language: V1.0 final — older saves get 'vi' via merge
   };
 }
 
@@ -84,6 +85,7 @@ function sanitizeFacts(facts) {
       avgResponseMs: Number.isFinite(f.avgResponseMs) ? f.avgResponseMs : null,
       mastery: Number.isFinite(m) ? Math.min(1, Math.max(0, m)) : 0,
       recovered: +f.recovered || 0,
+      assisted: +f.assisted || 0,
     };
   }
   return clean;
@@ -106,6 +108,7 @@ export function load() {
       .filter((q) => q && typeof q.key === 'string' && /^\d+x\d+$/.test(q.key) && Number.isFinite(q.dueQ)).slice(-24);
     state.profile.nickname = cleanNickname(state.profile.nickname);
     state.learning.recent = state.learning.recent.filter((k) => typeof k === 'string').slice(-6);
+    if (!LANGS.includes(state.settings.language)) state.settings.language = 'vi';
   } catch (e) {
     console.warn('Save data unreadable, starting fresh.');
     state = defaultState();
@@ -130,11 +133,11 @@ export function hasSave() {
 }
 
 export const hasProfile = () => !!state.profile.avatarId;
-export const nickname = () => state.profile.nickname || 'Bạn nhỏ';
+export const nickname = () => state.profile.nickname || t('nick.default');
 
 export function resetProgress() {
-  const sound = state.settings.sound;
+  const settings = state.settings;   // device preferences (sound, language) survive a progress reset
   state = defaultState();
-  state.settings.sound = sound;
+  state.settings = settings;
   save();
 }

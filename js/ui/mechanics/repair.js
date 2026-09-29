@@ -4,6 +4,7 @@
 import { THEMES, svgWrap, defs, sceneBackdrop, hero as heroArt, emo, roundTree, house, pine, mushroom, rock, cloud, palm, crystal, flower, spreadGroups } from '../art.js';
 import { moveG, wait, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
+import { t, tn, tList } from '../../i18n.js';
 
 export function create({ root, mission, zone, P }) {
   const T = THEMES[zone.id];
@@ -83,7 +84,7 @@ export function create({ root, mission, zone, P }) {
     const pw = Math.min(38, cell - 7);
     const ph = 6, gap = 1.8;
     let g = `<g class="caption" transform="translate(200 ${baseY - q.a * (ph + gap) - 16})"><rect x="-80" y="-12" width="160" height="24" rx="12"/>
-      <text text-anchor="middle" dy=".35em">Mỗi bó ${q.a} tấm · ${q.b} bó</text></g>`;
+      <text text-anchor="middle" dy=".35em">${tn('mech.repairCap', q.b, q)}</text></g>`;
     xs.forEach((x, k) => {
       let planks = '';
       for (let i = 0; i < q.a; i++) {
@@ -98,8 +99,8 @@ export function create({ root, mission, zone, P }) {
 
   return {
     answerKind: 'choices', skin: 'plank', optionCount: 3, floatAt: 0.8,
-    icon: '🔨', instruction: 'Đoạn cầu cần bao nhiêu tấm ván?',
-    correctLine: ['Cầu chắc hơn rồi!', 'Chuẩn luôn!', 'Đủ ván rồi!'],
+    icon: '🔨', instruction: t('mech.repair'),
+    correctLine: tList('mech.repairOk'),
     setQuestion(q, i) {
       cur = q;
       svg.querySelectorAll('.slot.target').forEach((el) => el.classList.remove('target'));

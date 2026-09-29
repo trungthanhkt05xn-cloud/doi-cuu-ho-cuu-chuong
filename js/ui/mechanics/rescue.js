@@ -3,6 +3,7 @@
 import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, roundTree, pine, mushroom, crystal, rock, flower, fence } from '../art.js';
 import { moveG, flyTo, wait, svgBurst, place } from '../fx.js';
 import { play } from '../../audio.js';
+import { t, tList } from '../../i18n.js';
 
 const SLOTS = [[-24, -86], [24, -86], [0, -104], [-30, -120], [30, -120], [0, -140]];
 
@@ -82,8 +83,8 @@ export function create({ root, mission, zone, P }) {
   return {
     answerKind: 'choices', skin: kind, optionCount: 4,
     icon: kind === 'bubble' ? '🌊' : kind === 'lantern' ? '🏮' : '🎈',
-    instruction: kind === 'bubble' ? 'Chạm bong bóng có số đúng!' : kind === 'lantern' ? 'Chạm đèn lồng có số đúng!' : 'Chạm quả bóng có số đúng!',
-    correctLine: ['Bay lên nào!', 'Lên cao hơn rồi!', 'Cố lên bạn ơi!'],
+    instruction: t(`mech.${kind}`),
+    correctLine: tList('mech.rescueOk'),
     setQuestion(q, i) {
       svg.querySelectorAll('.tied.target').forEach((el) => el.classList.remove('target'));
       svg.querySelector(`#${P}anchor${i}`).classList.add('target');

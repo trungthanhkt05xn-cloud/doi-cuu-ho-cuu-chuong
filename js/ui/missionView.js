@@ -4,6 +4,7 @@ import { missionById, zoneById } from '../game/catalog.js';
 import { MissionSession } from '../game/missionEngine.js';
 import { getState, save, nickname } from '../state.js';
 import { play, unlockAudio } from '../audio.js';
+import { t, missionText, npcName, badgeName, zoneName } from '../i18n.js';
 import { heroAvatar, groupsPicture, starPath } from './art.js';
 import { wait, floatText, confetti, retrigger } from './fx.js';
 import { balloonShape } from './mechanics/rescue.js';
@@ -30,9 +31,9 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   host.innerHTML = `
   <div class="mission theme-${zone.id}">
     <header class="topbar m-top">
-      <button class="icon-btn" data-act="exit" aria-label="Về bản đồ">✕</button>
-      <div class="m-title"><span class="m-npc">${mission.npc.e}</span><span>${esc(mission.title)}</span></div>
-      <div class="pips" aria-label="Tiến độ">${Array.from({ length: mission.steps }, () => '<i></i>').join('')}</div>
+      <button class="icon-btn" data-act="exit" aria-label="${t('ms.exit')}">✕</button>
+      <div class="m-title"><span class="m-npc">${mission.npc.e}</span><span>${esc(missionText(mission, 'title'))}</span></div>
+      <div class="pips" aria-label="${t('ms.progress')}">${Array.from({ length: mission.steps }, () => '<i></i>').join('')}</div>
     </header>
     <div class="m-body">
       <div class="m-scene">
@@ -40,20 +41,20 @@ export function renderMission(host, missionId, { onExit, onDone }) {
         <div class="hint-bubble" hidden role="status" aria-live="polite">
           <div class="hint-avatar">${heroAvatar('happy')}</div>
           <div class="hint-content"></div>
-          <button class="hint-close" aria-label="Đóng gợi ý">✕</button>
+          <button class="hint-close" aria-label="${t('ms.closeHint')}">✕</button>
         </div>
         <div class="exit-confirm" hidden>
-          <p>Về bản đồ nhé?</p>
-          <div class="row"><button class="btn btn-light" data-act="stay">Chơi tiếp</button><button class="btn btn-primary small" data-act="leave">Về bản đồ</button></div>
+          <p>${t('ms.exitAsk')}</p>
+          <div class="row"><button class="btn btn-light" data-act="stay">${t('ms.stay')}</button><button class="btn btn-primary small" data-act="leave">${t('ms.leave')}</button></div>
         </div>
       </div>
       <div class="m-panel">
         <div class="phase phase-intro">
           <div class="intro-card">
             <div class="intro-duo"><span class="intro-av">${heroAvatar('happy')}</span><span class="intro-npc">${mission.npc.e}</span></div>
-            <h2><span class="nick"></span> ơi, ${esc(mission.npc.name)} cần bạn!</h2>
-            <p>${esc(mission.intro)}</p>
-            <button class="btn btn-primary big" data-act="start">Bắt đầu! ▶</button>
+            <h2>${t('ms.needsYou', { nick: '<span class="nick"></span>', npc: esc(npcName(mission)) })}</h2>
+            <p>${esc(missionText(mission, 'intro'))}</p>
+            <button class="btn btn-primary big" data-act="start">${t('ms.go')}</button>
           </div>
         </div>
         <div class="phase phase-play" hidden>
@@ -63,7 +64,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
               <div class="task-instr"></div>
               <div class="equation" aria-live="polite"></div>
             </div>
-            <button class="help-btn" data-act="help" aria-label="Gợi ý">💡</button>
+            <button class="help-btn" data-act="help" aria-label="${t('ms.hint')}">💡</button>
           </div>
           <div class="answers"></div>
         </div>
@@ -125,8 +126,8 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     answersEl.className = `answers keypad skin-${zone.id}`;
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'];
     answersEl.innerHTML = keys.map((k) => {
-      if (k === 'del') return '<button class="key key-del" data-k="del" aria-label="Xóa">⌫</button>';
-      if (k === 'ok') return '<button class="key key-ok" data-k="ok" aria-label="Xong">✓</button>';
+      if (k === 'del') return `<button class="key key-del" data-k="del" aria-label="${t('ms.del')}">⌫</button>`;
+      if (k === 'ok') return `<button class="key key-ok" data-k="ok" aria-label="${t('ms.ok')}">✓</button>`;
       return `<button class="key" data-k="${k}">${k}</button>`;
     }).join('');
     okKey = answersEl.querySelector('.key-ok');
@@ -184,7 +185,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (h.level === 1) body += `<div class="hint-text">${esc(h.text)}</div>${groupsPicture(h.groups.size, h.groups.count)}`;
     if (h.level === 2) body += `<div class="hint-text sum">${esc(h.text)}</div><div class="chips">${h.chips.map((c) => `<span>${c}</span>`).join('')}${h.more ? '<span class="more">…?</span>' : ''}</div>`;
     if (h.level === 3) body += h.lines.map((l) => `<div class="hint-text">${esc(l)}</div>`).join('');
-    if (h.level === 4) body += `<div class="hint-reveal">${esc(h.reveal)}</div><div class="hint-text">${mech.answerKind === 'keypad' ? 'Bấm số đó nhé!' : 'Chạm vào số đó nhé!'}</div>`;
+    if (h.level === 4) body += `<div class="hint-reveal">${esc(h.reveal)}</div><div class="hint-text">${mech.answerKind === 'keypad' ? t('ms.typeIt') : t('ms.tapIt')}</div>`;
     hintEl.querySelector('.hint-content').innerHTML = body;
     hintEl.hidden = false;
     retrigger(hintEl, 'show');
@@ -204,7 +205,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     // A mistake from a few turns ago comes back once — say so, kindly.
     const again = q.source === 'remediation';
     $('.task-card').classList.toggle('again', again);
-    $('.task-instr').textContent = again ? '🔁 Phép này quay lại nè!' : mech.instruction;
+    $('.task-instr').textContent = again ? t('ms.again') : mech.instruction;
     // First time with this mechanic: point at where to answer — never at one particular answer.
     if (firstTimeType && session.step === 0) (mech.answerKind === 'keypad' ? eqEl : answersEl).classList.add('tutorial');
     busy = false;
@@ -230,7 +231,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       heroMood('happy');
       combo = session.hintLevel === 0 ? combo + 1 : 0;
       const recovered = session.q.source === 'remediation' && session.hintLevel === 0;
-      const line = recovered ? '✓ Nhớ rồi! Giỏi quá!' : combo >= 3 ? `🔥 ${combo} lần liền! Siêu quá!` : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
+      const line = recovered ? t('ms.recovered') : combo >= 3 ? t('ms.combo', { n: combo }) : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
       floatText(sceneHost, line, 'good', mech.floatAt || 0.35);   // mechanics keep it off their a × b groups
       await wait(mech.answerKind === 'keypad' ? 280 : 120);
       await mech.onCorrect(stepIdx, el, value);
@@ -263,23 +264,24 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   function showSuccess(r) {
     $('.phase-play').hidden = true;
     const box = $('.phase-success');
-    const title = mission.finale ? 'Giải cứu thành công!' : ['Hoàn thành!', 'Giỏi lắm!', 'Xuất sắc!'][r.stars - 1] || 'Hoàn thành!';
+    const title = t(mission.finale ? 'rw.finale' : `rw.t${Math.min(3, Math.max(1, r.stars))}`);
     let extras = '';
-    if (r.sticker) extras += `<div class="reward-chip"><span class="big">${r.sticker.e}</span> Sticker mới: <b>${esc(r.sticker.name)}</b></div>`;
-    if (r.badge) extras += `<div class="reward-chip badge"><span class="big">${r.badge.icon}</span> <b>${esc(r.badge.name)}</b></div>`;
-    if (r.newZone) extras += `<div class="reward-chip zone">🗺️ Mở vùng mới: <b>${esc(r.newZone.name)}</b></div>`;
+    if (r.sticker) extras += `<div class="reward-chip"><span class="big">${r.sticker.e}</span> ${t('rw.sticker')} <b>${esc(npcName(mission))}</b></div>`;
+    if (r.badge) extras += `<div class="reward-chip badge"><span class="big">${r.badge.icon}</span> <b>${esc(badgeName(zone))}</b></div>`;
+    if (r.newZone) extras += `<div class="reward-chip zone">${t('rw.zone')} <b>${esc(zoneName(r.newZone))}</b></div>`;
     // Say why this many stars in one short line; invite a replay only while 3 stars are still to win.
-    const why = `${r.firstTry}/${r.total} câu đúng ngay lần đầu — ${r.stars} ⭐`;
-    const next = r.best < 3 ? 'Chơi lại để thử lấy 3 ⭐' : r.stars < 3 ? `Kỷ lục của bạn vẫn là ${r.best} ⭐` : '';
+    // Hints used before any mistake cost nothing — say so, so the 💡 button never feels like a trap.
+    const why = t('rw.why', { a: r.firstTry, b: r.total, s: r.stars });
+    const next = r.best < 3 ? t('rw.tryFor3') : r.stars < 3 ? t('rw.best', { n: r.best }) : r.helped ? t('rw.hintFree') : '';
     box.innerHTML = `<div class="success-card">
       <h2>${title}</h2>
       <div class="stars-row">${[0, 1, 2].map(() => starSvg(false)).join('')}</div>
       <p class="why">${why}</p>${next ? `<p class="why-next">${next}</p>` : ''}
-      <p class="saved">${mission.npc.e} Cảm ơn <span class="nick"></span>!</p>
+      <p class="saved">${mission.npc.e} ${t('rw.thanks', { nick: '<span class="nick"></span>' })}</p>
       ${extras}
       <div class="row">
-        <button class="btn btn-light" data-act="replay">↺ Chơi lại</button>
-        <button class="btn btn-primary" data-act="continue">Tiếp tục ▶</button>
+        <button class="btn btn-light" data-act="replay">${t('rw.replay')}</button>
+        <button class="btn btn-primary" data-act="continue">${t('rw.continue')}</button>
       </div></div>`;
     fillNick(box);
     box.hidden = false;

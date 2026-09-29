@@ -1,9 +1,29 @@
 # PROJECT STATUS
 
 ## Current phase
-V1.0 REPAIR PASS (branch `repair/v1.0-gameplay-learning`) — candidate for MVP V1.0.
-Local QC complete; waiting for owner review + real iPhone/iPad Safari playtest before merging to `main`.
+V1.0 FINAL pass on `repair/v1.0-gameplay-learning` (after the real-child playtest) — candidate status **PARTIAL**:
+everything PASS locally, audio **NEEDS REAL iOS/iPadOS DEVICE RETEST**.
 `main` / GitHub Pages still serve V0.9 (unchanged).
+
+## V1.0 final pass — what changed
+| Area | Change | Status |
+|---|---|---|
+| iOS/iPadOS audio | Likely cause (from code; not reproducible without a device): the AudioContext was created on the first `pointerdown` — for touch that is NOT a user activation in WebKit (iPhone Safari + Chrome), and nothing ever re-woke a context that iOS suspended/interrupted. Now (`js/audio.js`): one context, created + resumed only inside real activations (`touchend` / `click` / `keydown` / mouse `pointerdown`, capture phase so it runs before any UI sound), silent 1-frame kick in the gesture, re-woken on every later gesture + `visibilitychange` / `pageshow` / `focus`, suspended while hidden, recreated only if closed or still dead after 2 gestures. First-tap sound waits for `resume()` (≤ 350 ms, else dropped — no late sounds). Sound OFF still = silence. | PASS (Chrome emulation) · **NEEDS REAL iOS/iPadOS DEVICE RETEST** |
+| Hint → reward | 💡 before any wrong answer is help, not a mistake: that answer still counts as first-try correct (stars = actual wrong attempts). Assessment keeps the difference: `hinted` → small mastery gain (unchanged) + new per-fact `assisted` count. Reward card adds "💡 Dùng gợi ý vẫn được đủ sao!" when hints were used and 3 ⭐ were earned. No mastery threshold changed. | PASS (A 3⭐ · B hint-only 3⭐ · C wrong→hint→correct 2⭐ · D replay no duplicate stars/sticker/badge, best kept) |
+| Language | `js/i18n.js`: `vi` (default) / `en` dictionaries, semantic keys, `{param}`; world content EN keyed by zone/mission id (VI stays in catalog). Covers Home, Profile, Map, all 5 mechanics, hints, feedback, remediation, Reward, Rescue Book, Settings, Reset confirm, aria-labels, `<html lang>` + title. Picker in Settings (segmented "Tiếng Việt / English", each in its own language); switches live, persists in `settings.language`. EN singular/plural for × 1. | PASS |
+| Avatars | +3 animals: Sóc Con / Squirrel, Rùa Con / Turtle, Thỏ Con / Bunny (inline SVG, same outline/palette + mood structure). 3×3 grid portrait, 1 row landscape. Names localized, ids language-neutral. | PASS |
+| Save | No schema bump: `settings.language` comes from defaults via merge (invalid → `vi`), `assisted` defaults to 0. V0.9 (v1) and V1.0-candidate (v2) saves load with progress, stars, stickers, badges, mastery, wrongFactQueue, nickname, avatar intact. Reset keeps sound + language. | PASS |
+
+### Targeted regression (headless Chrome, 390×844 · 768×1024 · 844×390 + 320×568 / 667×375 for the avatar grid)
+Fresh load → Start (touch-only) → new avatar → Map → Settings VI→EN→VI → reload → Continue; Repair (v1, f3), Light (v4, keypad c4), Unlock (v2, c3) in EN/VI with wrong→hint and 💡-only runs; Reward, replay, Rescue Book, Reset confirm, profile change (progress untouched); all 15 intros/titles in EN + VI at 390 px. 0 console errors, 0 missing assets, 0 horizontal overflow, 1 AudioContext per session, no duplicate rewards.
+Fixed during QC: landscape avatar row overflowed (9 cols) · "1 bundles" plural · long EN mission titles truncated → shortened.
+Known, unchanged: VI title "Đèn lồng đom đóm" ellipsizes in the 390 px top bar (pre-existing).
+
+### Real-device retest (owner)
+iPhone Safari + iPhone Chrome + iPad: first tap on Start/Continue makes a sound; sound after lock/unlock and app switching; ringer switch behaviour; EN text on iPhone SE.
+
+### Future ideas (not implemented)
+Language chip on Home for bilingual families; voice-over of numbers; per-avatar idle animation.
 
 ## Locked
 - Concept: Adventure Map + Rescue Missions

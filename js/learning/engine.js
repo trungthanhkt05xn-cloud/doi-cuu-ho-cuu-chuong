@@ -2,6 +2,7 @@
 // Convention follows Vietnamese textbooks: a × b = "a được lấy b lần" = a + a + … (b times).
 // Fact key "a x b" keeps order (6x7 and 7x6 are tracked separately).
 import { getState } from '../state.js';
+import { t, tn, tList } from '../i18n.js';
 
 export const TABLES = [2, 3, 4, 5, 6, 7, 8, 9];
 export const MULTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -23,7 +24,7 @@ function ensureFact(k) {
   const facts = L().facts;
   if (!facts[k]) {
     facts[k] = { attempts: 0, correct: 0, wrong: 0, streak: 0, lastSeen: null, lastResult: null,
-      lastMs: null, avgResponseMs: null, mastery: 0 };
+      lastMs: null, avgResponseMs: null, mastery: 0, recovered: 0, assisted: 0 };
   }
   return facts[k];
 }
@@ -139,6 +140,7 @@ export function recordAnswer(key, { correct, ms, hinted = false, remediation = f
     f.mastery = clamp01(f.mastery + gain);
     f.avgResponseMs = f.avgResponseMs == null ? Math.round(ms) : Math.round(f.avgResponseMs * 0.7 + ms * 0.3);
     if (remediation) f.recovered = (f.recovered || 0) + 1;
+    if (hinted) f.assisted = (f.assisted || 0) + 1;
   } else {
     f.wrong += 1;
     f.streak = 0;
@@ -192,31 +194,31 @@ export function makeOptions(q, n, level = 1) {
   return shuffle(out);
 }
 
-const ENCOURAGE = ['Gần đúng rồi!', 'Thử cách này nhé!', 'Không sao, mình thử lại!', 'Cố lên, sắp được rồi!'];
-
 /**
  * Hint ladder (never shown all at once):
  * 1 meaning (groups picture) → 2 repeated addition / skip counting → 3 anchor fact → 4 show answer.
  */
 export function hintFor(q, level) {
   const { a, b, answer } = q;
-  const title = ENCOURAGE[Math.floor(Math.random() * ENCOURAGE.length)];
+  const enc = tList('hint.encourage');
+  const title = enc[Math.floor(Math.random() * enc.length)];
   if (level <= 1) {
-    return { level: 1, title, text: `${a} × ${b} là ${a} được lấy ${b} lần`, groups: { size: a, count: b } };
+    return { level: 1, title, text: tn('hint.meaning', b, { a, b }), groups: { size: a, count: b } };
   }
   if (level === 2) {
     const shown = Math.max(1, Math.ceil(b / 2));
     const chips = [];
     for (let i = 1; i <= shown; i++) chips.push(a * i);
-    return { level: 2, title: 'Đếm thêm từng nhóm nhé!', text: Array(b).fill(a).join(' + '), chips, more: b > shown };
+    return { level: 2, title: t('hint.count'), text: Array(b).fill(a).join(' + '), chips, more: b > shown };
   }
   if (level === 3) {
     let lines;
-    if (b === 1) lines = [`Số nào nhân 1 cũng bằng chính nó`];
-    else if (b === 10) lines = [`Nhân 10: viết thêm số 0 vào sau ${a}`];
-    else if (b > 5) lines = [`${a} × 5 = ${a * 5}`, `thêm ${b - 5} lần ${a} nữa: ${a * 5} + ${a * (b - 5)}`];
-    else lines = [`${a} × ${b - 1} = ${a * (b - 1)}`, `thêm 1 lần ${a} nữa: ${a * (b - 1)} + ${a}`];
-    return { level: 3, title: 'Mẹo nè!', lines };
+    const plus = (k, x, y) => t(k === 1 ? 'hint.plusOne' : 'hint.plusMany', { k, a, x, y });
+    if (b === 1) lines = [t('hint.times1')];
+    else if (b === 10) lines = [t('hint.times10', { a })];
+    else if (b > 5) lines = [`${a} × 5 = ${a * 5}`, plus(b - 5, a * 5, a * (b - 5))];
+    else lines = [`${a} × ${b - 1} = ${a * (b - 1)}`, plus(1, a * (b - 1), a)];
+    return { level: 3, title: t('hint.trick'), lines };
   }
-  return { level: 4, title: 'Xem nè!', reveal: `${a} × ${b} = ${answer}` };
+  return { level: 4, title: t('hint.look'), reveal: `${a} × ${b} = ${answer}` };
 }

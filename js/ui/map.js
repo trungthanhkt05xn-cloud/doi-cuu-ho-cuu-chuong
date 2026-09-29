@@ -4,6 +4,7 @@ import { ZONES, MISSIONS, zoneMissions } from '../game/catalog.js';
 import { missionStatus, currentMission, starsOf, zoneUnlocked, totalStars, allDone } from '../game/progression.js';
 import { getState, save, nickname } from '../state.js';
 import { play, unlockAudio } from '../audio.js';
+import { t, zoneName, missionText } from '../i18n.js';
 import {
   THEMES, hero as heroArt, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
 } from './art.js';
@@ -91,7 +92,7 @@ function zoneBanner(z, x, y) {
   return `<g class="zone-banner" transform="translate(${x} ${y})">
     <path d="M${-w / 2 - 14} 4 L${-w / 2} -12 L${-w / 2} 20Z M${w / 2 + 14} 4 L${w / 2} -12 L${w / 2} 20Z" fill="${z.color}" opacity=".7"/>
     <rect x="${-w / 2}" y="-16" width="${w}" height="36" rx="12" fill="${z.color}" stroke="#fff" stroke-width="3"/>
-    <text x="0" y="2" text-anchor="middle" dy=".35em" class="banner-text">${z.name}</text>
+    <text x="0" y="2" text-anchor="middle" dy=".35em" class="banner-text">${zoneName(z)}</text>
     <g transform="translate(0 30)"><rect x="-42" y="-9" width="84" height="18" rx="9" fill="#fff" opacity=".92"/><text x="0" y="0" dy=".35em" text-anchor="middle" class="banner-sub">×${z.tables.join(' ×')}</text></g></g>`;
 }
 
@@ -111,11 +112,11 @@ function nodeSvg(m, status, isCurrent) {
   if (status === 'done') {
     starsRow = `<g class="node-stars" transform="translate(0 ${r + 8})">${[-15, 0, 15].map((dx, i) => `<path class="nstar ${i < stars ? 'on' : ''}" d="${starPath(dx, 0, 8)}"/>`).join('')}</g>`;
   }
-  const label = `<g transform="translate(0 ${r + (status === 'done' ? 26 : 14)})"><rect x="-42" y="-9" width="84" height="19" rx="9.5" class="node-label-bg ${status}"/><text class="node-label" text-anchor="middle" dy=".35em" y="0.5">${m.short}</text></g>`;
+  const label = `<g transform="translate(0 ${r + (status === 'done' ? 26 : 14)})"><rect x="-42" y="-9" width="84" height="19" rx="9.5" class="node-label-bg ${status}"/><text class="node-label" text-anchor="middle" dy=".35em" y="0.5">${missionText(m, 'short')}</text></g>`;
   const crown = m.finale ? `<text class="emo" y="${-r - 8}" text-anchor="middle" font-size="18">${status === 'done' ? '🏅' : '⭐'}</text>` : '';
   const pulse = isCurrent ? `<circle r="${r + 6}" class="pulse-ring"/><circle r="${r + 6}" class="pulse-ring d2"/>` : '';
   const arrow = isCurrent ? `<g transform="translate(0 ${-r - (m.finale ? 30 : 16)})"><g class="bounce-arrow"><path d="M-9 -14 h18 v8 h8 l-17 16 l-17 -16 h8z" fill="#ff7a2a" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/></g></g>` : '';
-  return `<g class="map-node ${status} ${isCurrent ? 'current' : ''}" data-id="${m.id}" transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${m.title}${status === 'locked' ? ' (chưa mở)' : ''}"${status === 'locked' ? ' aria-disabled="true"' : ''}>
+  return `<g class="map-node ${status} ${isCurrent ? 'current' : ''}" data-id="${m.id}" transform="translate(${x} ${y})" role="button" tabindex="0" aria-label="${missionText(m, 'title')}${status === 'locked' ? t('map.lockedAria') : ''}"${status === 'locked' ? ' aria-disabled="true"' : ''}>
     <circle r="${r + 14}" fill="transparent"/>${pulse}<g class="node-body"><ellipse cy="${r - 2}" rx="${r}" ry="6" fill="#000" opacity=".15"/>${inner}${crown}</g>${starsRow}${label}${arrow}</g>`;
 }
 
@@ -129,8 +130,8 @@ function fogSvg(z, i) {
   return `<g class="fog" id="fog-${z.id}"><rect x="-200" y="${y0}" width="${W + 400}" height="${y1 - y0 + 10}" fill="url(#mp-fog)"/>${clouds}
     <g transform="translate(200 ${cy - 20})"><circle r="44" fill="#fff" stroke="${z.color}" stroke-width="5"/><text class="emo" dy=".35em" text-anchor="middle" font-size="40">🔒</text></g>
     <g transform="translate(200 ${cy + 50})"><rect x="-120" y="-20" width="240" height="40" rx="20" fill="#fff" stroke="${z.color}" stroke-width="3"/>
-    <text class="fog-text" text-anchor="middle" dy=".35em">${finale.npc.e} ${finale.title} để mở</text></g>
-    <g transform="translate(200 ${y0 + 34})"><text class="fog-title" text-anchor="middle" dy=".35em">${z.name}</text></g></g>`;
+    <text class="fog-text" text-anchor="middle" dy=".35em">${t('map.fog', { m: `${finale.npc.e} ${missionText(finale, 'title')}` })}</text></g>
+    <g transform="translate(200 ${y0 + 34})"><text class="fog-title" text-anchor="middle" dy=".35em">${zoneName(z)}</text></g></g>`;
 }
 
 export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params = {}) {
@@ -171,11 +172,11 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
   host.innerHTML = `
   <div class="map-screen">
     <header class="topbar map-top">
-      <button class="icon-btn" data-act="home" aria-label="Trang chủ">🏠</button>
-      <div class="pill stars-pill" aria-label="Tổng số sao"><span class="star-ic">⭐</span><b>${totalStars()}</b></div>
+      <button class="icon-btn" data-act="home" aria-label="${t('ui.home')}">🏠</button>
+      <div class="pill stars-pill" aria-label="${t('ui.totalStars')}"><span class="star-ic">⭐</span><b>${totalStars()}</b></div>
       <div class="spacer"></div>
-      <button class="icon-btn" data-act="album" aria-label="Sổ cứu hộ">🎒</button>
-      <button class="icon-btn" data-act="settings" aria-label="Cài đặt">⚙️</button>
+      <button class="icon-btn" data-act="album" aria-label="${t('ui.album')}">🎒</button>
+      <button class="icon-btn" data-act="settings" aria-label="${t('ui.settings')}">⚙️</button>
     </header>
     <div class="map-scroll"><div class="map-inner">${svg}</div></div>
     <div class="map-toast" hidden></div>
@@ -229,7 +230,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
       if (missionStatus(m) === 'locked') {
         play('wrong');
         retrigger(g.querySelector('.node-body'), 'wobble');
-        floatText(g, '🔒 Chưa mở');
+        floatText(g, t('map.locked'));
         return;
       }
       play('tap');
@@ -237,7 +238,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     });
   });
   hero.addEventListener('click', () => { if (cur) { unlockAudio(); play('tap'); onPlay(cur.id); } });
-  svgEl.querySelectorAll('.fog').forEach((f) => f.addEventListener('click', () => { play('wrong'); showToast('🔒 Vùng này chưa mở. Hoàn thành vùng trước nhé!', 2200); }));
+  svgEl.querySelectorAll('.fog').forEach((f) => f.addEventListener('click', () => { play('wrong'); showToast(t('map.fogToast'), 2200); }));
 
   host.querySelector('.map-top').addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
@@ -278,7 +279,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
         await wait(700);
         if (fog) fog.classList.add('clearing');
         play('reveal');
-        showToast(`🗺️ Vùng mới: <b>${z.name}</b>!`);
+        showToast(t('map.newZone', { z: zoneName(z) }));
         await wait(1100);
         if (fog) fog.remove();
         if (cur) {
@@ -289,13 +290,13 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     }
 
     if (!st.progress.tutorial.intro) {
-      showToast('Chào <b class="nick"></b>! Chạm vào bạn Vịt để bắt đầu cứu hộ nhé!', 0);
+      showToast(t('map.intro', { nick: '<b class="nick"></b>' }), 0);
       toast.querySelector('.nick').textContent = nickname();   // user text: textContent only
       st.progress.tutorial.intro = true;
       save();
     } else if (params.justCompleted && allDone()) {
       confetti(70);
-      showToast('🏆 Bạn đã cứu tất cả bạn bè! <b>Anh hùng Cửu Chương!</b>', 5000);
+      showToast(t('map.allDone'), 5000);
     }
   });
 }

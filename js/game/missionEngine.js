@@ -15,6 +15,7 @@ export class MissionSession {
     this.optionCount = optionCount;
     this.step = 0;
     this.firstTryCorrect = 0;
+    this.helpedCorrect = 0;   // first-try correct after a voluntary hint (no star cost)
     this.reward = null;
     this.q = null;
     // Per-mission learning context: remediation happens at most once per fact per mission.
@@ -40,7 +41,11 @@ export class MissionSession {
     if (!this.recorded) {
       recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0, remediation: q.source === 'remediation' });
       this.recorded = true;
-      if (correct && this.hintLevel === 0) this.firstTryCorrect += 1;
+      // Stars count actual mistakes only: the 💡 button raises hintLevel but is not a wrong answer.
+      if (correct && this.misses === 0) {
+        this.firstTryCorrect += 1;
+        if (this.hintLevel > 0) this.helpedCorrect += 1;
+      }
     }
     if (correct) {
       this.step += 1;
@@ -64,6 +69,7 @@ export class MissionSession {
     this.reward = completeMission(this.mission.id, starsFor(this.firstTryCorrect, this.total));
     this.reward.firstTry = this.firstTryCorrect;
     this.reward.total = this.total;
+    this.reward.helped = this.helpedCorrect;
     save();
     return this.reward;
   }

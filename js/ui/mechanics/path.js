@@ -3,6 +3,7 @@
 import { THEMES, svgWrap, defs, sceneBackdrop, hero as heroArt, emo, windmill, roundTree, pine, bush, rock, palm, mushroom, crystal, flower } from '../art.js';
 import { tween, wait, place, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
+import { t, tList } from '../../i18n.js';
 
 const START = { x: 200, y: 300 };
 const ENDS = [{ x: 76, y: 160 }, { x: 200, y: 148 }, { x: 324, y: 160 }];
@@ -113,8 +114,8 @@ export function create({ root, mission, zone, P, pick }) {
 
   return {
     answerKind: 'choices', skin: 'sign', optionCount: 3,
-    icon: '🧭', instruction: 'Chọn biển báo có số đúng!',
-    correctLine: ['Đúng đường rồi!', 'Đi tiếp nào!', 'Chuẩn luôn!'],
+    icon: '🧭', instruction: t('mech.path'),
+    correctLine: tList('mech.pathOk'),
     arrows: ['↖', '↑', '↗'],
     setQuestion(q, i, options) {
       current = options;

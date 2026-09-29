@@ -2,6 +2,7 @@
 import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, fence, roundTree, pine, mushroom, crystal, rock, flower, starPath } from '../art.js';
 import { tween, wait, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
+import { t, tList } from '../../i18n.js';
 
 const RUNES = [
   (x, y) => `<path d="${starPath(x, y, 8)}"/>`,
@@ -97,8 +98,8 @@ export function create({ root, mission, zone, P }) {
 
   return {
     answerKind: 'keypad', icon: kind === 'forest' ? '🔮' : kind === 'cove' ? '💎' : '🔒',
-    instruction: 'Bấm số để mở khóa!',
-    correctLine: ['Mở được rồi!', 'Cạch! Mở rồi!', 'Tuyệt!'],
+    instruction: t('mech.unlock'),
+    correctLine: tList('mech.unlockOk'),
     setQuestion(q, i) {
       svg.querySelectorAll('.lock.target').forEach((el) => el.classList.remove('target'));
       lock(i).classList.add('target');

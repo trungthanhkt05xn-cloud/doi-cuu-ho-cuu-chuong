@@ -1,28 +1,81 @@
-// Tiny WebAudio synth — no audio files, no autoplay. Context is created on the first user gesture (iOS rule).
+// Tiny WebAudio synth — no audio files, no autoplay.
+// iOS / iPadOS (Safari and every other iOS browser = WebKit) only lets an AudioContext start inside a
+// real user activation (touchend / click / keydown — NOT a touch pointerdown), may leave it
+// 'suspended' or 'interrupted' after backgrounding / calls / other audio, and occasionally keeps a
+// context that never resumes. So: one context, created + resumed from activation events only, woken
+// again on every later gesture / return to the foreground, and recreated only if it stays dead.
 let ctx = null;
 let master = null;
+let noiseBuf = null;
 let enabled = true;
+let deadChecks = 0;      // gestures after which the context still was not running
+let checkPending = false;
 
 export function setSoundEnabled(v) { enabled = !!v; }
 
-export function unlockAudio() {
+const AC = () => window.AudioContext || window.webkitAudioContext;
+const wakeable = () => ctx && ctx.state !== 'running' && ctx.state !== 'closed';
+
+function createContext() {
+  const C = AC();
+  try { ctx = new C({ latencyHint: 'interactive' }); } catch (e) { ctx = new C(); }
+  master = ctx.createGain();
+  master.gain.value = 0.55;
+  master.connect(ctx.destination);
+  noiseBuf = null;
+  deadChecks = 0;
+}
+
+// Must run inside a user activation.
+function unlockFromGesture() {
   try {
-    if (!ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = 0.55;
-      master.connect(ctx.destination);
-      // iOS: play one silent frame inside the gesture to fully unlock output.
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(master);
-      src.start(0);
+    if (!AC()) return;
+    if (ctx && (ctx.state === 'closed' || deadChecks >= 2)) {   // broken context: replace it (rare)
+      try { if (ctx.state !== 'closed') ctx.close(); } catch (e) { /* ignore */ }
+      ctx = null;
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    if (!ctx) createContext();
+    if (ctx.state === 'running') { deadChecks = 0; return; }
+    // Play one silent frame inside the gesture — WebKit only really starts output when something plays.
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, 22050);
+    src.connect(master);
+    src.start(0);
+    Promise.resolve(ctx.resume()).catch(() => {});
+    if (!checkPending && !document.hidden) {
+      checkPending = true;
+      const c = ctx;
+      setTimeout(() => {
+        checkPending = false;
+        if (c === ctx && !document.hidden) deadChecks = c.state === 'running' ? 0 : deadChecks + 1;
+      }, 600);
+    }
   } catch (e) { /* audio is optional */ }
+}
+
+// Outside a gesture (UI handlers, focus, pageshow): only try to wake an existing context — never
+// create one here (on iOS a context created outside an activation may never start).
+export function unlockAudio() {
+  if (wakeable()) Promise.resolve(ctx.resume()).catch(() => {});
+}
+
+function onGesture(e) {
+  if (e.type === 'pointerdown' && e.pointerType !== 'mouse') return;   // touch pointerdown is not an activation
+  if (!ctx || ctx.state !== 'running') unlockFromGesture();
+}
+
+/** Call once at boot. Listeners run in the capture phase, before any UI handler plays a sound. */
+export function initAudio() {
+  ['touchend', 'click', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, onGesture, { capture: true, passive: true }));
+  // Background → suspend (no CPU while hidden). Foreground → try to resume right away; if WebKit
+  // refuses without a gesture, the next tap (onGesture) resumes it.
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) { if (ctx.state === 'running') Promise.resolve(ctx.suspend()).catch(() => {}); }
+    else unlockAudio();
+  });
+  window.addEventListener('pageshow', unlockAudio);   // back-forward cache restore
+  window.addEventListener('focus', unlockAudio);
 }
 
 function tone(freq, t, dur, { type = 'sine', vol = 0.18, to = null } = {}) {
@@ -40,7 +93,6 @@ function tone(freq, t, dur, { type = 'sine', vol = 0.18, to = null } = {}) {
   o.stop(t + dur + 0.03);
 }
 
-let noiseBuf = null;
 function noise(t, dur, { vol = 0.2, freq = 800, q = 1 } = {}) {
   if (!noiseBuf) {
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
@@ -83,7 +135,19 @@ const SOUNDS = {
   reveal: (t) => [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, t + i * 0.09, 0.35, { vol: 0.09 })),
 };
 
-export function play(name, arg) {
-  if (!enabled || !ctx || ctx.state !== 'running' || !SOUNDS[name]) return;
+function fire(name, arg) {
   try { SOUNDS[name](ctx.currentTime + 0.01, arg); } catch (e) { /* ignore */ }
+}
+
+export function play(name, arg) {
+  if (!enabled || !ctx || !SOUNDS[name]) return;
+  if (ctx.state === 'running') { fire(name, arg); return; }
+  if (ctx.state === 'closed') return;
+  // Still waking up (e.g. the very first tap: resume() is async): play it if the context comes up
+  // almost at once, otherwise drop it — a late sound is worse than none.
+  const c = ctx;
+  const t0 = Date.now();
+  Promise.resolve(c.resume()).then(() => {
+    if (c === ctx && enabled && c.state === 'running' && Date.now() - t0 < 350) fire(name, arg);
+  }).catch(() => {});
 }

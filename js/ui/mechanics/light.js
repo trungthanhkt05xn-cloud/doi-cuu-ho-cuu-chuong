@@ -4,6 +4,7 @@
 import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, house, pine, roundTree, rock, crystal, lighthouse, spreadGroups } from '../art.js';
 import { wait, svgBurst, tween, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
+import { t, tn, tList } from '../../i18n.js';
 
 export function create({ root, mission, zone, P }) {
   const T = THEMES[zone.id];
@@ -121,7 +122,7 @@ export function create({ root, mission, zone, P }) {
     });
     const capX = spans.length > 1 ? (spans[0][0] + spans[0][1]) / 2 : 200;   // cove: beside the lighthouse
     g += `<g class="caption" transform="translate(${capX} ${bandY + h / 2 + 13})"><rect x="-80" y="-10" width="160" height="20" rx="10"/>
-      <text text-anchor="middle" dy=".35em">Mỗi chùm ${q.a} bóng · ${q.b} chùm</text></g>`;
+      <text text-anchor="middle" dy=".35em">${tn('mech.lightCap', q.b, q)}</text></g>`;
     garland.innerHTML = g;
     retrigger(garland, 'pop-in');
   }
@@ -135,8 +136,8 @@ export function create({ root, mission, zone, P }) {
   return {
     answerKind: keypad ? 'keypad' : 'choices', skin: 'bulb', optionCount: 4, floatAt: 0.66,
     icon: zone.id === 'cove' ? '⚡' : '💡',
-    instruction: keypad ? 'Cần bao nhiêu bóng? Bấm số!' : 'Đèn cần bao nhiêu bóng nhỏ?',
-    correctLine: ['Sáng rồi!', 'Rực rỡ quá!', 'Đủ bóng rồi!'],
+    instruction: t(keypad ? 'mech.lightKey' : 'mech.light'),
+    correctLine: tList('mech.lightOk'),
     setQuestion(q, i) {
       cur = q;
       svg.querySelectorAll('.lamp.target').forEach((el) => el.classList.remove('target'));

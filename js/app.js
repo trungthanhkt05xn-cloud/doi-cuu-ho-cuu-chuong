@@ -1,6 +1,7 @@
 // App shell: boot, screen routing (with history so iOS swipe-back stays in the game), Home, Settings.
 import { load, save, getState, hasSave, hasProfile, nickname, resetProgress } from './state.js';
-import { setSoundEnabled, unlockAudio, play } from './audio.js';
+import { setSoundEnabled, unlockAudio, play, initAudio } from './audio.js';
+import { t, setLang, getLang, missionText } from './i18n.js';
 import { renderMap } from './ui/map.js';
 import { renderMission } from './ui/missionView.js';
 import { renderAlbum } from './ui/album.js';
@@ -108,18 +109,18 @@ function renderHome() {
   <div class="home">
     ${homeArt()}
     <div class="home-top">
-      <button class="icon-btn" data-act="sound" aria-label="Âm thanh">${getState().settings.sound ? '🔊' : '🔇'}</button>
-      <button class="icon-btn" data-act="settings" aria-label="Cài đặt">⚙️</button>
+      <button class="icon-btn" data-act="sound" aria-label="${t('ui.sound')}">${getState().settings.sound ? '🔊' : '🔇'}</button>
+      <button class="icon-btn" data-act="settings" aria-label="${t('ui.settings')}">⚙️</button>
     </div>
     <div class="home-center">
       <div class="logo">
-        <h1><span>Đội Cứu Hộ</span><span class="accent">Cửu Chương</span></h1>
-        <div class="logo-sub">Giải cứu thế giới bằng phép nhân!</div>
+        <h1><span>${t('home.title1')}</span><span class="accent">${t('home.title2')}</span></h1>
+        <div class="logo-sub">${t('home.sub')}</div>
       </div>
       <div class="home-actions">
-        ${saved && hasProfile() ? `<div class="home-hello">${heroAvatar('happy')}<span>Chào <b class="nick"></b>!</span></div>` : ''}
-        ${saved ? `<button class="btn btn-primary big" data-act="continue">▶ Chơi tiếp</button>
-          <div class="home-meta">⭐ ${stars} sao${next ? ` · Tiếp theo: ${next.npc.e} ${next.title}` : allDone() ? ' · 🏆 Anh hùng Cửu Chương' : ''}</div>` : '<button class="btn btn-primary big" data-act="start">Bắt đầu phiêu lưu ▶</button>'}
+        ${saved && hasProfile() ? `<div class="home-hello">${heroAvatar('happy')}<span>${t('home.hello', { nick: '<b class="nick"></b>' })}</span></div>` : ''}
+        ${saved ? `<button class="btn btn-primary big" data-act="continue">${t('home.continue')}</button>
+          <div class="home-meta">${t('home.stars', { n: stars })}${next ? t('home.next', { m: `${next.npc.e} ${missionText(next, 'title')}` }) : allDone() ? t('home.hero') : ''}</div>` : `<button class="btn btn-primary big" data-act="start">${t('home.start')}</button>`}
       </div>
     </div>
   </div>`;
@@ -162,17 +163,20 @@ function openSettings() {
     const on = getState().settings.sound;
     sheetRoot.innerHTML = `
     <div class="sheet-backdrop" data-act="close"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="Cài đặt">
-      <h2>Cài đặt</h2>
-      <button class="setting-row" data-act="sound"><span>${on ? '🔊' : '🔇'} Âm thanh</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${t('set.title')}">
+      <h2>${t('set.title')}</h2>
+      <button class="setting-row" data-act="sound"><span>${on ? '🔊' : '🔇'} ${t('set.sound')}</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>
+      <div class="setting-row lang-row" role="group" aria-label="${t('set.lang')}"><span>🌐 ${t('set.lang')}</span>
+        <span class="seg">${[['vi', 'Tiếng Việt'], ['en', 'English']].map(([id, label]) =>
+          `<button class="seg-btn ${getLang() === id ? 'on' : ''}" data-act="lang" data-lang="${id}" lang="${id}" aria-pressed="${getLang() === id}">${label}</button>`).join('')}</span></div>
       <div class="reset-zone">
-        <button class="setting-row danger" data-act="ask-reset"><span>🗑️ Xóa tiến trình</span><span>›</span></button>
+        <button class="setting-row danger" data-act="ask-reset"><span>🗑️ ${t('set.reset')}</span><span>›</span></button>
         <div class="confirm" hidden>
-          <p>Xóa hết sao, sticker và tiến trình học?</p>
-          <div class="row"><button class="btn btn-light" data-act="cancel-reset">Không</button><button class="btn btn-danger" data-act="do-reset">Xóa hết</button></div>
+          <p>${t('set.resetAsk')}</p>
+          <div class="row"><button class="btn btn-light" data-act="cancel-reset">${t('set.resetNo')}</button><button class="btn btn-danger" data-act="do-reset">${t('set.resetYes')}</button></div>
         </div>
       </div>
-      <button class="btn btn-primary" data-act="close">Xong</button>
+      <button class="btn btn-primary" data-act="close">${t('ui.done')}</button>
     </div>`;
     sheetRoot.classList.add('open');
   };
@@ -184,6 +188,10 @@ function openSettings() {
     const act = b.dataset.act;
     if (act === 'close') { play('tap'); closeSettings(); }
     else if (act === 'sound') { toggleSound(); renderSheet(); }
+    else if (act === 'lang') {
+      play('tap');
+      if (b.dataset.lang !== getLang()) { applyLanguage(b.dataset.lang); renderSheet(); }
+    }
     else if (act === 'ask-reset') { play('tap'); sheetRoot.querySelector('.confirm').hidden = false; }
     else if (act === 'cancel-reset') { play('tap'); sheetRoot.querySelector('.confirm').hidden = true; }
     else if (act === 'do-reset') {
@@ -192,6 +200,20 @@ function openSettings() {
       show('home', {}, 'replace');
     }
   };
+}
+
+// Switch language live: save it, retitle the page, redraw whatever screen sits under the sheet.
+function applyLanguage(lang) {
+  getState().settings.language = lang;
+  save();
+  setLang(lang);
+  labelScreens();
+  if (currentScreen === 'home') renderHome();
+  else if (currentScreen === 'map') show('map', {}, 'none');
+}
+
+function labelScreens() {
+  Object.entries(screens).forEach(([k, el]) => el.setAttribute('aria-label', t(`screen.${k}`)));
 }
 
 function closeSettings() {
@@ -206,10 +228,13 @@ function closeSettings() {
 
 // ── Boot ──
 load();
+setLang(getState().settings.language);
+labelScreens();
 setSoundEnabled(getState().settings.sound);
-// iOS: enable :active styles on touch + unlock audio on the first touch.
+// Audio unlock + recovery (iOS/iPadOS gesture + lifecycle rules live in audio.js).
+initAudio();
+// iOS: enable :active styles on touch.
 document.addEventListener('touchstart', () => {}, { passive: true });
-window.addEventListener('pointerdown', unlockAudio, { once: true });
 // Prevent pinch/double-tap zoom gestures inside the game surface (iOS ignores user-scalable=no).
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 show('home', {}, 'replace');

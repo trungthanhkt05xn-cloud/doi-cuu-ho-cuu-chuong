@@ -125,16 +125,44 @@ const AVATAR_ART = {
     <ellipse cx="0" cy="-47" rx="15" ry="7" fill="#8fe28b"/>
     <circle cx="-4" cy="-47" r="1.3" fill="${OL}"/><circle cx="4" cy="-47" r="1.3" fill="${OL}"/>
     ${face(-62, 9)}`,
+
+  // squirrel scout: big curly tail, tufted ears, buck teeth, acorn badge
+  squirrel: () => `<path d="M8 -14 Q44 -10 44 -46 Q44 -84 14 -86 Q0 -86 2 -74 Q24 -76 28 -56 Q32 -36 10 -30Z" fill="#c9773a" stroke="${OL}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M16 -24 Q37 -26 37 -48 Q37 -74 18 -79 Q30 -68 31 -52 Q32 -34 16 -24Z" fill="#eaa76a"/>
+    ${body({ shirt: '#2fb07a', pants: '#b8692f', arm: '#c9773a', shoe: '#6b3f1d',
+      extra: '<ellipse cx="0" cy="-23" rx="4.6" ry="5.2" fill="#b0692d" stroke="#263553" stroke-width="1.4"/><path d="M-5.5 -26.5 Q0 -32 5.5 -26.5Z" fill="#6b3f1d" stroke="#263553" stroke-width="1.2"/>' })}
+    <path d="M-22 -68 Q-28 -90 -10 -82Z M22 -68 Q28 -90 10 -82Z" fill="#c9773a" stroke="${OL}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M-20 -72 Q-24 -84 -14 -80Z M20 -72 Q24 -84 14 -80Z" fill="#ffc2a8"/>
+    <circle cx="0" cy="-60" r="24" fill="#d98a47" stroke="${OL}" stroke-width="2.6"/>
+    <path d="M-5 -83 Q0 -74 5 -83" stroke="#8a4c20" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <ellipse cx="0" cy="-48" rx="13" ry="9" fill="#fff1dc"/>
+    ${face(-60, 9)}<ellipse cx="0" cy="-53" rx="3.2" ry="2.3" fill="${OL}"/>
+    <rect x="-2.6" y="-47.6" width="5.2" height="4.6" rx="1.2" fill="#fff" stroke="${OL}" stroke-width="1.1"/>`,
+
+  // turtle adventurer: shell on the back, blue bandana
+  turtle: () => `<ellipse cx="0" cy="-27" rx="27" ry="25" fill="#2f7d47" stroke="${OL}" stroke-width="2.4"/>
+    <ellipse cx="0" cy="-27" rx="22" ry="20" fill="#4fae63"/>
+    <path d="M-22 -34 l6 3 M-23 -20 l6 -2 M22 -34 l-6 3 M23 -20 l-6 -2" stroke="#2f7d47" stroke-width="2.2" stroke-linecap="round"/>
+    ${body({ shirt: '#f3e3a1', pants: '#7cc96b', arm: '#7cc96b', shoe: '#4f9a44',
+      extra: '<path d="M-12 -32 H12 M-13 -25 H13 M-11 -18 H11 M0 -39 V-13" stroke="#c9ad5f" stroke-width="1.8" stroke-linecap="round"/>' })}
+    <ellipse cx="0" cy="-60" rx="24" ry="22" fill="#7cc96b" stroke="${OL}" stroke-width="2.6"/>
+    <circle cx="-13" cy="-73" r="2.6" fill="#5fae55"/><circle cx="-4" cy="-78" r="2" fill="#5fae55"/><circle cx="14" cy="-74" r="2.2" fill="#5fae55"/>
+    <path d="M-23 -68 Q0 -77 23 -68 L23 -63 Q0 -71 -23 -63Z" fill="#3aa0ff" stroke="${OL}" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M21 -66 L33 -73 L31 -63Z M21 -66 L34 -62 L27 -56Z" fill="#3aa0ff" stroke="${OL}" stroke-width="1.6" stroke-linejoin="round"/>
+    ${face(-56, 9)}`,
+
+  // bunny in a yellow raincoat with a red scarf
+  rabbit: () => `<g transform="rotate(-8 -10 -80)"><ellipse cx="-10" cy="-86" rx="7" ry="16" fill="#fbf7f2" stroke="${OL}" stroke-width="2.4"/><ellipse cx="-10" cy="-86" rx="3.4" ry="11" fill="#ffc2d1"/></g>
+    <g transform="rotate(22 10 -78)"><ellipse cx="10" cy="-86" rx="7" ry="16" fill="#fbf7f2" stroke="${OL}" stroke-width="2.4"/><ellipse cx="10" cy="-86" rx="3.4" ry="11" fill="#ffc2d1"/></g>
+    ${body({ shirt: '#ffc933', pants: '#f2ece4', arm: '#ffc933', shoe: '#e0d6ca',
+      extra: '<path d="M-15 -39 Q0 -30 15 -39 L13 -33 Q0 -25 -13 -33Z" fill="#ff5a5f" stroke="#263553" stroke-width="1.8"/><path d="M8 -33 l3 11 l5 -2 l-3 -10Z" fill="#ff5a5f" stroke="#263553" stroke-width="1.5" stroke-linejoin="round"/>' })}
+    <circle cx="0" cy="-60" r="23" fill="#fbf7f2" stroke="${OL}" stroke-width="2.6"/>
+    ${face(-60, 9)}<path d="M-3.2 -53.6 h6.4 l-3.2 3.4z" fill="#ff8fb1" stroke="${OL}" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M-12 -50 h-9 M-12 -47 l-8 3 M12 -50 h9 M12 -47 l8 3" stroke="#b9ada0" stroke-width="1.4" stroke-linecap="round"/>`,
 };
 
-export const AVATARS = [
-  { id: 'bip', name: 'Rô-bốt Bíp' },
-  { id: 'cap', name: 'Mũ Đỏ' },
-  { id: 'buns', name: 'Tóc Búi' },
-  { id: 'fox', name: 'Cáo Phi Công' },
-  { id: 'panda', name: 'Gấu Trúc' },
-  { id: 'dino', name: 'Khủng Long' },
-];
+// Language-neutral ids (saved in the profile); names come from i18n ('av.<id>').
+export const AVATARS = ['bip', 'cap', 'buns', 'fox', 'panda', 'dino', 'squirrel', 'turtle', 'rabbit'].map((id) => ({ id }));
 
 export function avatar(avatarId, x, y, s = 1, id = '', mood = '') {
   const art = AVATAR_ART[avatarId] || AVATAR_ART.bip;
