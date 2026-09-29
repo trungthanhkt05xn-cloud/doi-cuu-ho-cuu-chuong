@@ -1,9 +1,18 @@
 // Mission screen: intro → play (scene + task card + answers + hints) → success.
 // The mechanic module owns the scene; this view owns the answer UI and the flow.
+//
+// V1.1 optional mechanic hooks ("build the groups" missions — MATH → WORLD ACTION → CONSEQUENCE):
+//   action / actsOn(step)   the question starts with an in-world action; answers appear only after it
+//   grew(k), ready()        callbacks the mechanic calls while the child builds the groups
+//   actNext()               keyboard / prompt button: build the next group
+//   actionInstruction, actionHow, actionNudge, actionHint()   copy + 💡 during the action (not a math hint)
+//   onHint(h)               show the structure of a math hint in the world
+//   kindFor(step), optionsFor(step)   chained missions can mix choices and keypad
 import { missionById, zoneById } from '../game/catalog.js';
 import { MissionSession } from '../game/missionEngine.js';
+import { forestLayers } from '../game/progression.js';
 import { getState, save, nickname } from '../state.js';
-import { play, unlockAudio } from '../audio.js';
+import { play, unlockAudio, setMusic } from '../audio.js';
 import { t, missionText, npcName, badgeName, zoneName } from '../i18n.js';
 import { heroAvatar, groupsPicture, starPath } from './art.js';
 import { wait, floatText, confetti, retrigger } from './fx.js';
@@ -13,8 +22,15 @@ import * as unlock from './mechanics/unlock.js';
 import * as pathM from './mechanics/path.js';
 import * as rescue from './mechanics/rescue.js';
 import * as light from './mechanics/light.js';
+import * as firefly from './mechanics/firefly.js';
+import * as signal from './mechanics/signal.js';
+import * as relay from './mechanics/relay.js';
+import * as beacon from './mechanics/beacon.js';
+import * as nightRescue from './mechanics/nightRescue.js';
 
-const MECHANICS = { repair, unlock, path: pathM, rescue, light };
+const MECHANICS = { repair, unlock, path: pathM, rescue, light, firefly, signal, relay, beacon, nightRescue };
+// Music inside missions: only Whisper Woods has its living soundscape (quiet, under the SFX).
+const missionMusic = (zone) => setMusic(zone.id === 'forest' ? 'forest' : null, { layers: forestLayers(), quiet: true });
 const BALLOON_COLORS = ['#ff6b6b', '#4cc3ff', '#ffc933', '#57d68d', '#b98cff', '#ff8fc7'];
 let uid = 0;
 let keyHandler = null;
@@ -93,14 +109,21 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (b) { b.classList.remove('happy', 'think'); if (m) b.classList.add(m); }
   };
 
+  let acting = false;     // V1.1: the child is building the groups in the world (answers not shown yet)
+  let grown = 0;
+  let kind = 'choices';
   const mech = MECHANICS[mission.type].create({
     root: sceneHost, mission, zone, P,
     pick: (value, el) => onAnswer(value, el),
+    grew: (k) => onGrew(k),
+    ready: () => onReady(),
   });
+  kind = mech.answerKind;
   const session = new MissionSession(mission, { answerKind: mech.answerKind, optionCount: mech.optionCount });
   $('.task-icon').textContent = mech.icon;
   $('.task-instr').textContent = mech.instruction;
   const firstTimeType = !st.progress.tutorial.mechanics[mission.type];
+  missionMusic(zone);
 
   // ── answers UI ──
   function renderChoices(options) {
@@ -131,6 +154,11 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       return `<button class="key" data-k="${k}">${k}</button>`;
     }).join('');
     okKey = answersEl.querySelector('.key-ok');
+  }
+
+  // Keypad input is delegated on the answers box and bound ONCE (the box is re-rendered between the
+  // world action and the answer, so binding per render would double every digit).
+  function bindKeypad() {
     // One physical touch = one digit, while repeated digits (44, 66, 88) stay easy to type:
     // - act on pointerdown; a second contact on a key that is still held down is ignored;
     // - the click the browser synthesises after that same touch is ignored;
@@ -158,15 +186,55 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   }
 
   function renderEquation(q) {
-    const slot = mech.answerKind === 'keypad' ? `<span class="ans-slot typing">${typed || '<i class="caret"></i>'}</span>` : '<span class="ans-slot">?</span>';
+    if (acting) {
+      // While the groups are being built the equation grows with them: a × 1, a × 2 … a × b.
+      eqEl.classList.add('growing');
+      eqEl.innerHTML = `<span class="n">${q.a}</span><span class="op">×</span><span class="n grow ${grown ? '' : 'empty'}">${grown || ''}</span>`;
+      return;
+    }
+    eqEl.classList.remove('growing');
+    const slot = kind === 'keypad' ? `<span class="ans-slot typing">${typed || '<i class="caret"></i>'}</span>` : '<span class="ans-slot">?</span>';
     if (okKey) okKey.disabled = !typed;
     eqEl.innerHTML = `<span class="n">${q.a}</span><span class="op">×</span><span class="n">${q.b}</span><span class="op">=</span>${slot}`;
     eqEl.dataset.a = q.a;
     eqEl.dataset.b = q.b;
   }
 
+  // ── V1.1 world action: build the groups first ──
+  function renderActPrompt() {
+    answersEl.className = 'answers act';
+    // A real button: a big, forgiving target (and the keyboard / switch-access path) — it builds the next group.
+    answersEl.innerHTML = `<button class="act-prompt" data-act="act"><span class="act-hand" aria-hidden="true">👆</span><span>${esc(mech.actionHow)}</span></button>`;
+    optionEls = [];
+    okKey = null;
+  }
+
+  function onGrew(k) {
+    if (!acting || !session.q) return;
+    grown = k;
+    renderEquation(session.q);
+    retrigger(eqEl.querySelector('.grow'), 'tick');
+    hideHint();
+  }
+
+  function onReady() {
+    if (!acting || phase !== 'play') return;
+    acting = false;
+    renderAnswers(session.options);
+    renderEquation(session.q);
+    retrigger(eqEl, 'pop');
+    if (session.q.source !== 'remediation') $('.task-instr').textContent = mech.instruction;
+    if (firstTimeType && session.step === 0) (kind === 'keypad' ? eqEl : answersEl).classList.add('tutorial');
+    session.restartClock();   // thinking time starts now, not while building
+  }
+
+  function renderAnswers(options) {
+    if (kind === 'keypad') { if (!answersEl.classList.contains('keypad')) renderKeypad(); }
+    else renderChoices(options);
+  }
+
   function onKey(k) {
-    if (busy || phase !== 'play') return;
+    if (busy || phase !== 'play' || acting || kind !== 'keypad') return;
     unlockAudio();
     eqEl.classList.remove('tutorial');
     if (k === 'del') { typed = typed.slice(0, -1); play('key'); }
@@ -185,34 +253,45 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (h.level === 1) body += `<div class="hint-text">${esc(h.text)}</div>${groupsPicture(h.groups.size, h.groups.count)}`;
     if (h.level === 2) body += `<div class="hint-text sum">${esc(h.text)}</div><div class="chips">${h.chips.map((c) => `<span>${c}</span>`).join('')}${h.more ? '<span class="more">…?</span>' : ''}</div>`;
     if (h.level === 3) body += h.lines.map((l) => `<div class="hint-text">${esc(l)}</div>`).join('');
-    if (h.level === 4) body += `<div class="hint-reveal">${esc(h.reveal)}</div><div class="hint-text">${mech.answerKind === 'keypad' ? t('ms.typeIt') : t('ms.tapIt')}</div>`;
+    if (h.level === 4) body += `<div class="hint-reveal">${esc(h.reveal)}</div><div class="hint-text">${kind === 'keypad' ? t('ms.typeIt') : t('ms.tapIt')}</div>`;
     hintEl.querySelector('.hint-content').innerHTML = body;
     hintEl.hidden = false;
     retrigger(hintEl, 'show');
+    if (mech.onHint && h.level >= 1) mech.onHint(h);   // the same structure, shown in the world
   }
   const hideHint = () => { hintEl.hidden = true; };
 
+  // Fact Echo: a fact missed in another mission comes back in THIS world — say where we met it.
+  function echoLine(q) {
+    const src = q.from && q.from !== mission.id ? missionById(q.from) : null;
+    return src ? t('ms.echo', { place: `${src.npc.e} ${missionText(src, 'short')}` }) : t('ms.again');
+  }
+
   // ── flow ──
   function nextStep() {
-    const { q, options } = session.next();
+    kind = mech.kindFor ? mech.kindFor(session.step) : mech.answerKind;
+    const { q, options } = session.next(kind, mech.optionsFor ? mech.optionsFor(session.step) : mech.optionCount);
     typed = '';
-    if (mech.answerKind === 'keypad') { if (!answersEl.classList.contains('keypad')) renderKeypad(); }
-    else renderChoices(options);
+    grown = 0;
+    acting = !!(mech.action && (!mech.actsOn || mech.actsOn(session.step)));
+    if (acting) renderActPrompt();
+    else renderAnswers(options);
     renderEquation(q);
     mech.setQuestion(q, session.step, options);
     heroMood('');
     retrigger(eqEl, 'pop');
-    // A mistake from a few turns ago comes back once — say so, kindly.
+    // A mistake from a few turns ago comes back once — say so, kindly (and where we met it).
     const again = q.source === 'remediation';
     $('.task-card').classList.toggle('again', again);
-    $('.task-instr').textContent = again ? t('ms.again') : mech.instruction;
+    $('.task-instr').textContent = again ? echoLine(q) : acting ? mech.actionInstruction : mech.instruction;
     // First time with this mechanic: point at where to answer — never at one particular answer.
-    if (firstTimeType && session.step === 0) (mech.answerKind === 'keypad' ? eqEl : answersEl).classList.add('tutorial');
+    // (World actions cue their own targets; the answer cue then comes in onReady.)
+    if (firstTimeType && session.step === 0 && !acting) (kind === 'keypad' ? eqEl : answersEl).classList.add('tutorial');
     busy = false;
   }
 
   async function onAnswer(value, el) {
-    if (busy || phase !== 'play') return;
+    if (busy || phase !== 'play' || acting) return;
     unlockAudio();
     answersEl.classList.remove('tutorial');
     eqEl.classList.remove('tutorial');
@@ -225,7 +304,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       busy = true;
       hideHint();
       if (el) el.classList.add('correct');
-      if (mech.answerKind === 'keypad') { eqEl.querySelector('.ans-slot').classList.add('ok'); }
+      if (kind === 'keypad') { eqEl.querySelector('.ans-slot').classList.add('ok'); }
       optionEls.forEach((b) => { if (b !== el) b.classList.add('fade'); });
       play('correct');
       heroMood('happy');
@@ -233,7 +312,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       const recovered = session.q.source === 'remediation' && session.hintLevel === 0;
       const line = recovered ? t('ms.recovered') : combo >= 3 ? t('ms.combo', { n: combo }) : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
       floatText(sceneHost, line, 'good', mech.floatAt || 0.35);   // mechanics keep it off their a × b groups
-      await wait(mech.answerKind === 'keypad' ? 280 : 120);
+      await wait(kind === 'keypad' ? 280 : 120);
       await mech.onCorrect(stepIdx, el, value);
       updatePips();
       if (res.done) await finish();
@@ -243,7 +322,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       combo = 0;
       heroMood('think');
       if (el) { el.classList.add('wrong'); el.disabled = true; retrigger(el, 'shake'); }
-      if (mech.answerKind === 'keypad') { typed = ''; renderEquation(session.q); retrigger(eqEl.querySelector('.ans-slot'), 'shake'); }
+      if (kind === 'keypad') { typed = ''; renderEquation(session.q); retrigger(eqEl.querySelector('.ans-slot'), 'shake'); }
       mech.onWrong(value, el);
       showHint(res.hint);
       if (res.hint.level >= 4) {
@@ -257,6 +336,8 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     phase = 'done';
     await mech.onComplete();
     const reward = session.finish();
+    // The world remembers: a restored place sounds different from now on (Whisper Woods gains a layer).
+    missionMusic(zone);
     if (!st.progress.tutorial.mechanics[mission.type]) { st.progress.tutorial.mechanics[mission.type] = true; save(); }
     showSuccess(reward);
   }
@@ -306,9 +387,15 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       $('.phase-intro').hidden = true;
       $('.phase-play').hidden = false;
       nextStep();
+    } else if (act === 'act' && phase === 'play' && acting) {
+      if (mech.actNext) mech.actNext();
     } else if (act === 'help' && phase === 'play' && !busy) {
-      play('tap');
-      showHint(session.help());
+      play('hint');
+      if (acting) {
+        // 💡 while building: show WHERE to tap — this is about the action, not the math (no hint recorded).
+        if (mech.actionHint) mech.actionHint();
+        showHint({ level: 0, title: mech.actionNudge || '' });
+      } else showHint(session.help());
     } else if (act === 'exit') {
       play('tap');
       if (phase === 'play' && session.step > 0) $('.exit-confirm').hidden = false;
@@ -342,6 +429,8 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     mech.destroy();
   }
 
+  bindKeypad();
+
   // Desktop keyboard support.
   if (keyHandler) document.removeEventListener('keydown', keyHandler);
   keyHandler = (e) => {
@@ -350,7 +439,9 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     if (phase !== 'play') return;
     // Enter/Space on a focused button already activates that button — don't act twice.
     if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement.tagName === 'BUTTON') return;
-    if (mech.answerKind === 'keypad') {
+    if (acting) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (mech.actNext) mech.actNext(); }
+    } else if (kind === 'keypad') {
       if (/^[0-9]$/.test(e.key)) onKey(e.key);
       else if (e.key === 'Backspace') onKey('del');
       else if (e.key === 'Enter') onKey('ok');

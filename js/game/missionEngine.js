@@ -22,10 +22,11 @@ export class MissionSession {
     this.ctx = { tables: this.zone.tables, allowed: unlockedTables(), remediated: new Set(), lastSource: null };
   }
 
-  next() {
+  /** kind: answer UI for this step (chained missions can mix choices and keypad). */
+  next(kind = this.answerKind, count = this.optionCount) {
     this.q = nextQuestion(this.ctx);
     this.ctx.lastSource = this.q.source;
-    this.options = this.answerKind === 'choices' ? makeOptions(this.q, this.optionCount, this.level) : null;
+    this.options = kind === 'choices' ? makeOptions(this.q, count, this.level) : null;
     this.misses = 0;
     this.hintLevel = 0;
     this.recorded = false;
@@ -39,7 +40,7 @@ export class MissionSession {
     const q = this.q;
     const correct = Number(value) === q.answer;
     if (!this.recorded) {
-      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0, remediation: q.source === 'remediation' });
+      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0, remediation: q.source === 'remediation', from: this.mission.id });
       this.recorded = true;
       // Stars count actual mistakes only: the 💡 button raises hintLevel but is not a wrong answer.
       if (correct && this.misses === 0) {
@@ -61,8 +62,11 @@ export class MissionSession {
   /** Voluntary hint from the 💡 button — never reveals the answer. */
   help() {
     this.hintLevel = Math.min(3, this.hintLevel + 1);
-    return hintFor(this.q, this.hintLevel);
+    return hintFor(this.q, this.hintLevel, { voluntary: this.misses === 0 });
   }
+
+  /** The world action (building the groups) starts the thinking clock only once it is finished. */
+  restartClock() { this.shownAt = performance.now(); }
 
   finish() {
     if (this.reward) return this.reward;   // guard against double rewards (double tap / re-entry)

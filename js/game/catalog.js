@@ -15,7 +15,8 @@ export const ZONES = [
   },
 ];
 
-// type: repair | unlock | path | rescue | light
+// type: repair | unlock | path | rescue | light (V1.0)
+//       firefly | signal | nightRescue | relay | beacon (V1.1 "Living Rescue World": build the groups in the world)
 // answer (optional) overrides the mechanic's default answer mode.
 export const MISSIONS = [
   // ── Làng Nắng ──
@@ -33,24 +34,24 @@ export const MISSIONS = [
   // ── Rừng Thì Thầm ──
   { id: 'f1', zone: 'forest', type: 'path', steps: 4, title: 'Lối mòn bí ẩn', short: 'Lối mòn',
     intro: 'Rừng nhiều ngã rẽ quá! Tìm đường tới nhà Nhím Nâu.', npc: { e: '🦔', name: 'Nhím Nâu' } },
-  { id: 'f2', zone: 'forest', type: 'light', steps: 5, title: 'Đèn lồng đom đóm', short: 'Đèn lồng',
-    intro: 'Rừng tối om! Thắp 5 đèn lồng cho Sóc Nhỏ về tổ.', npc: { e: '🐿️', name: 'Sóc Nhỏ' } },
+  { id: 'f2', zone: 'forest', type: 'firefly', steps: 5, title: 'Đánh thức đom đóm', short: 'Đom đóm',
+    intro: 'Rừng tối om! Đánh thức đom đóm để soi đường cho Sóc Nhỏ về tổ.', npc: { e: '🐿️', name: 'Sóc Nhỏ' } },
   { id: 'f3', zone: 'forest', type: 'repair', steps: 5, title: 'Cầu dây leo', short: 'Cầu dây leo',
     intro: 'Cầu dây leo bị đứt! Nối 5 đoạn cầu giúp Cáo Cam.', npc: { e: '🦊', name: 'Cáo Cam' } },
-  { id: 'f4', zone: 'forest', type: 'unlock', steps: 4, title: 'Cửa đá cổ', short: 'Cửa đá',
-    intro: 'Ếch Xanh kẹt sau cửa đá. Mở 4 ký hiệu phép thuật!', npc: { e: '🐸', name: 'Ếch Xanh' } },
-  { id: 'f5', zone: 'forest', type: 'rescue', steps: 6, finale: true, title: 'Cứu Cú Con', short: 'Cứu Cú Con',
-    intro: 'Cú Con rơi xuống hang sâu! Thả đèn lồng bay đưa bạn lên.', npc: { e: '🦉', name: 'Cú Con' } },
+  { id: 'f4', zone: 'forest', type: 'signal', steps: 4, title: 'Tín hiệu rừng xanh', short: 'Tín hiệu',
+    intro: 'Ếch Xanh lạc trong sương mù! Nối các trạm tín hiệu để tìm bạn ấy.', npc: { e: '🐸', name: 'Ếch Xanh' } },
+  { id: 'f5', zone: 'forest', type: 'nightRescue', steps: 4, finale: true, title: 'Cứu hộ trong đêm', short: 'Cứu Cú Con',
+    intro: 'Cú Con bị lạc trong đêm! Tìm bạn ấy, thắp sáng lối đi rồi đưa bạn ấy về nhà.', npc: { e: '🦉', name: 'Cú Con' } },
 
   // ── Vịnh Pha Lê ──
   { id: 'c1', zone: 'cove', type: 'repair', steps: 5, title: 'Cầu cảng', short: 'Cầu cảng',
     intro: 'Sóng làm hỏng cầu cảng! Lát lại 5 đoạn cho Cánh Cụt.', npc: { e: '🐧', name: 'Cánh Cụt' } },
-  { id: 'c2', zone: 'cove', type: 'path', steps: 4, title: 'Hải trình đá ngầm', short: 'Hải trình',
-    intro: 'Biển nhiều đá ngầm! Lái thuyền đúng đường tới đảo Rùa.', npc: { e: '🐢', name: 'Rùa Biển' } },
+  { id: 'c2', zone: 'cove', type: 'relay', steps: 4, title: 'Tiếp sức ngoài khơi', short: 'Tiếp sức',
+    intro: 'Rùa Biển chờ ở đảo xa! Nạp năng lượng cho phao cứu hộ để thuyền ra khơi.', npc: { e: '🐢', name: 'Rùa Biển' } },
   { id: 'c3', zone: 'cove', type: 'unlock', steps: 4, title: 'Rương kho báu', short: 'Kho báu',
     intro: 'Cua Đỏ tìm thấy rương báu! Mở 4 khóa pha lê nhé.', npc: { e: '🦀', name: 'Cua Đỏ' } },
-  { id: 'c4', zone: 'cove', type: 'light', answer: 'keypad', steps: 5, title: 'Sửa hải đăng', short: 'Hải đăng',
-    intro: 'Hải đăng tắt rồi! Nạp 5 tầng năng lượng để dẫn Cá Heo về.', npc: { e: '🐬', name: 'Cá Heo' } },
+  { id: 'c4', zone: 'cove', type: 'beacon', steps: 5, title: 'Đánh thức hải đăng', short: 'Hải đăng',
+    intro: 'Hải đăng ngủ quên rồi! Quay máy phát để đánh thức từng tầng đèn, dẫn Cá Heo về.', npc: { e: '🐬', name: 'Cá Heo' } },
   { id: 'c5', zone: 'cove', type: 'rescue', steps: 6, finale: true, title: 'Cứu Rái Cá', short: 'Cứu Rái Cá',
     intro: 'Rái Cá kẹt dưới đáy biển! Thổi bong bóng đưa bạn lên.', npc: { e: '🦦', name: 'Rái Cá' } },
 ];

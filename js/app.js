@@ -1,6 +1,6 @@
 // App shell: boot, screen routing (with history so iOS swipe-back stays in the game), Home, Settings.
 import { load, save, getState, hasSave, hasProfile, nickname, resetProgress } from './state.js';
-import { setSoundEnabled, unlockAudio, play, initAudio } from './audio.js';
+import { setSoundEnabled, setMusicEnabled, setMusic, unlockAudio, play, initAudio } from './audio.js';
 import { t, setLang, getLang, missionText } from './i18n.js';
 import { renderMap } from './ui/map.js';
 import { renderMission } from './ui/missionView.js';
@@ -28,6 +28,8 @@ function show(name, params = {}, mode = 'push') {
   const token = ++navToken;
   if (prev) prev.classList.add('leaving');
   next.classList.add('active', 'entering');
+  // Home / Rescue Book / profile share the light map theme; the map and missions pick their own music.
+  if (name === 'home' || name === 'album' || name === 'profile') setMusic('map');
   if (name === 'home') renderHome();
   if (name === 'map') renderMap(screens.map, mapHandlers, params);
   if (name === 'mission') renderMission(screens.mission, params.id, missionHandlers);
@@ -109,7 +111,8 @@ function renderHome() {
   <div class="home">
     ${homeArt()}
     <div class="home-top">
-      <button class="icon-btn" data-act="sound" aria-label="${t('ui.sound')}">${getState().settings.sound ? '🔊' : '🔇'}</button>
+      <button class="icon-btn" data-act="sound" aria-label="${t('ui.sound')}" aria-pressed="${getState().settings.sound}">${getState().settings.sound ? '🔊' : '🔇'}</button>
+      <button class="icon-btn music-btn ${getState().settings.music ? '' : 'off'}" data-act="music" aria-label="${t('ui.music')}" aria-pressed="${getState().settings.music}">🎵</button>
       <button class="icon-btn" data-act="settings" aria-label="${t('ui.settings')}">⚙️</button>
     </div>
     <div class="home-center">
@@ -141,6 +144,11 @@ screens.home.addEventListener('click', (e) => {
   } else if (act === 'sound') {
     toggleSound();
     b.textContent = getState().settings.sound ? '🔊' : '🔇';
+    b.setAttribute('aria-pressed', String(getState().settings.sound));
+  } else if (act === 'music') {
+    toggleMusic();
+    b.classList.toggle('off', !getState().settings.music);
+    b.setAttribute('aria-pressed', String(getState().settings.music));
   } else if (act === 'settings') {
     play('tap');
     openSettings();
@@ -158,14 +166,25 @@ function toggleSound() {
   play('tap');
 }
 
+// Music and Sound are independent; both are device preferences saved in settings.
+function toggleMusic() {
+  const s = getState().settings;
+  s.music = !s.music;
+  setMusicEnabled(s.music);
+  save();
+  play('tap');
+}
+
 function openSettings() {
   const renderSheet = () => {
     const on = getState().settings.sound;
+    const mOn = getState().settings.music;
     sheetRoot.innerHTML = `
     <div class="sheet-backdrop" data-act="close"></div>
     <div class="sheet" role="dialog" aria-modal="true" aria-label="${t('set.title')}">
       <h2>${t('set.title')}</h2>
-      <button class="setting-row" data-act="sound"><span>${on ? '🔊' : '🔇'} ${t('set.sound')}</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>
+      <button class="setting-row" data-act="sound" aria-pressed="${on}"><span>${on ? '🔊' : '🔇'} ${t('set.sound')}</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>
+      <button class="setting-row" data-act="music" aria-pressed="${mOn}"><span>🎵 ${t('set.music')}</span><span class="toggle ${mOn ? 'on' : ''}"><i></i></span></button>
       <div class="setting-row lang-row" role="group" aria-label="${t('set.lang')}"><span>🌐 ${t('set.lang')}</span>
         <span class="seg">${[['vi', 'Tiếng Việt'], ['en', 'English']].map(([id, label]) =>
           `<button class="seg-btn ${getLang() === id ? 'on' : ''}" data-act="lang" data-lang="${id}" lang="${id}" aria-pressed="${getLang() === id}">${label}</button>`).join('')}</span></div>
@@ -188,6 +207,7 @@ function openSettings() {
     const act = b.dataset.act;
     if (act === 'close') { play('tap'); closeSettings(); }
     else if (act === 'sound') { toggleSound(); renderSheet(); }
+    else if (act === 'music') { toggleMusic(); renderSheet(); }
     else if (act === 'lang') {
       play('tap');
       if (b.dataset.lang !== getLang()) { applyLanguage(b.dataset.lang); renderSheet(); }
@@ -231,6 +251,7 @@ load();
 setLang(getState().settings.language);
 labelScreens();
 setSoundEnabled(getState().settings.sound);
+setMusicEnabled(getState().settings.music);
 // Audio unlock + recovery (iOS/iPadOS gesture + lifecycle rules live in audio.js).
 initAudio();
 // iOS: enable :active styles on touch.

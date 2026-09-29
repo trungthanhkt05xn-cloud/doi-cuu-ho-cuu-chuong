@@ -62,6 +62,7 @@ export function nextQuestion(ctx) {
 
   let chosen = null;
   let source = 'target';
+  let from = null;   // Fact Echo: the mission where this fact was missed (it may come back in another world)
 
   // 1) Remediation: a fact answered wrong comes back once at least 2 other facts have been shown.
   //    Max once per fact per mission (ctx.remediated), never two remediations in a row, and a
@@ -77,6 +78,7 @@ export function nextQuestion(ctx) {
     if (it) {
       chosen = it.key;
       source = 'remediation';
+      from = it.from || null;
       if (ctx.remediated) ctx.remediated.add(it.key);   // removed from the queue when answered
     }
   }
@@ -116,14 +118,15 @@ export function nextQuestion(ctx) {
   lp.recent.push(chosen);
   if (lp.recent.length > 6) lp.recent.shift();
   const { a, b } = parseKey(chosen);
-  return { key: chosen, a, b, answer: a * b, source };
+  return { key: chosen, a, b, answer: a * b, source, from };
 }
 
 /**
  * Record the FIRST outcome of a question (retries after a hint are not recorded as new attempts).
  * remediation = this question was the "second chance" for an earlier mistake.
+ * from = mission id where it was asked (remembered with a queued mistake for Fact Echo).
  */
-export function recordAnswer(key, { correct, ms, hinted = false, remediation = false }) {
+export function recordAnswer(key, { correct, ms, hinted = false, remediation = false, from = null }) {
   const lp = L();
   const f = ensureFact(key);
   f.attempts += 1;
@@ -151,7 +154,7 @@ export function recordAnswer(key, { correct, ms, hinted = false, remediation = f
       const wq = lp.wrongFactQueue;
       const i = wq.findIndex((it) => it.key === key);
       if (i >= 0) wq.splice(i, 1);
-      wq.push({ key, dueQ: lp.qCount + 3 });
+      wq.push(from ? { key, dueQ: lp.qCount + 3, from } : { key, dueQ: lp.qCount + 3 });
       if (wq.length > 24) wq.splice(0, wq.length - 24);
     }
   }
@@ -198,9 +201,10 @@ export function makeOptions(q, n, level = 1) {
  * Hint ladder (never shown all at once):
  * 1 meaning (groups picture) → 2 repeated addition / skip counting → 3 anchor fact → 4 show answer.
  */
-export function hintFor(q, level) {
+export function hintFor(q, level, { voluntary = false } = {}) {
   const { a, b, answer } = q;
-  const enc = tList('hint.encourage');
+  // 💡 before any mistake is curiosity, not a slip — "so close / try again" would not make sense then.
+  const enc = tList(voluntary ? 'hint.help' : 'hint.encourage');
   const title = enc[Math.floor(Math.random() * enc.length)];
   if (level <= 1) {
     return { level: 1, title, text: tn('hint.meaning', b, { a, b }), groups: { size: a, count: b } };

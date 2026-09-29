@@ -1,6 +1,35 @@
 # PROJECT STATUS
 
 ## Current phase
+**V1.1 "Living Rescue World"** on `feature/v1.1-living-rescue-world` (from `v1.0.0` = `6b73f7d`) — **PARTIAL**:
+all targeted checks PASS in headless Chromium; iPhone/iPad audio + touch **NEED REAL-DEVICE RETEST** before merge/tag.
+`main` = V1.0 (released, verified on iPhone Safari).
+
+## V1.1 — what changed
+Principle: MATH → WORLD ACTION → WORLD CONSEQUENCE. a × b is still **b groups of a** (V1.0 convention, same as the hint).
+| Area | Change |
+|---|---|
+| New mechanic flow | Optional hooks in `missionView` (`action`, `grew`/`ready`, `actNext`, `actionHint`, `onHint`, `kindFor`, `optionsFor`). Each question: build the b groups in the world (tap or swipe; big prompt button + Enter also work) → equation grows a × 1 … a × b → recall the total → the world changes. Thinking clock starts when answers appear. Shared helpers: `mechanics/groups.js`. |
+| f2 Wake the Fireflies (`firefly`) | Wake b nests of a fireflies → "how many?" → fireflies rise (a, 2a …) and light the path home. |
+| f4 Forest Signal (`signal`) | Connect the signal tree to b stations (tap, or drag a snapping vine across them) → keypad → pulse runs the network, mist clears, Frog found. |
+| f5 Night Rescue (`nightRescue`, 4 steps) | FIND (signal flashes → tap the right tree) → REACH ×2 (light mushrooms → stepping stones → hop) → RESCUE (light lanterns → keypad → basket lifts Owl). Story lines react to restored signal / fireflies. Reward only at the end. |
+| c2 Ocean Relay (`relay`) | Tap buoys; the boat serves them in order with bundles of a packs → total → relay light, island comes closer. |
+| c4 Wake the Lighthouse (`beacon`) | Turn the crank b times (a sparks per turn) → keypad → sparks climb to wake one floor; beam at the end. |
+| v1 polish (all Repair) | Friend walks the finished bridge, planks glow one by one. |
+| World remembers | `progression.world()` derived from completion (no new saved state): map bridge broken → fixed + Duck; forest dusk tint 0.30 → 0.19 → 0.09 → 0; fireflies; signal network; Owl home; buoys; lit lighthouse. First completion only: camera + fade-in + `restore` chime + toast. |
+| Fact Echo | Queue items carry `from` (mission id). A missed fact returning in another mission says "🔁 Nhớ phép này ở 🐿️ Đom đóm không?" and is built in the new world. Direct-recall missions unchanged. Mastery untouched. |
+| Music / Sound | Separate SFX + Music buses on the same context (unlock/lifecycle code unchanged). Procedural music: `map` theme (Home/Map/Book) and `forest` (base + fireflies / signal / owl layers; brighter filter as it recovers), quiet under forest missions, silent in other missions. One scheduler timer max; runs only when context running + visible + Music ON; stops on hidden/suspend, never catches up. `settings.music` (default ON) + Home 🎵 toggle + Settings row. |
+| Copy | Hint before any mistake → "Cùng xem nhé! / Let's look together!" (not "so close"). EN reward "3 of 3 correct on the first try". Long mission titles wrap to 2 lines (no ellipsis). |
+| Save | No schema bump. V1.0 saves: music default via merge, world state derived, `from` optional. |
+
+### V1.1 targeted QC (headless Chromium 153, scratch harness — not in repo)
+40/40 regression checks + 6-mission smoke + input paths: V1.0-save migration (EN, sound OFF, nickname/avatar/stars, queue) · fresh onboarding · Music/Sound independent + persisted + reload · VI→EN→VI · first-time world reveal once, not on replay/reload · Reset clears world, keeps settings · Fact Echo f2 → f4 (same fact, signal stations, recovered +1) · 💡 during action = tap cue only · hint-only 3⭐ · wrong→hint→correct 4/5 = 2⭐, best kept · keypad one tap = one digit (also after replay) · v2 (V1.0 unlock) clean · signal drag, prompt button, keyboard-only · 1 audio interval after 3× map↔mission, 0 while hidden · 320×568, 390×844, 768×1024, 844×390, 1280×800: 0 overflow, 0 console errors, 0 missing assets.
+Fixed during QC: 🛟 not in older emoji fonts → ⛵ · captions auto-size (EN overflow) · 320 px keypad equation overlapped 💡 → smaller equation ≤ 360 px · scene bottoms clear of the panel edge.
+
+### Real-device retest (owner, before merge)
+Music start after first tap; Music/Sound toggles; lock/unlock + app switch (music resumes once, no doubling); ringer switch; swipe across nests / drag vine on iPhone (no page scroll); f5 chain pacing with a child; volume balance music vs SFX.
+
+## V1.0 (previous phase)
 V1.0 FINAL pass on `repair/v1.0-gameplay-learning` (after the real-child playtest) — candidate status **PARTIAL**:
 everything PASS locally, audio **NEEDS REAL iOS/iPadOS DEVICE RETEST**.
 `main` / GitHub Pages still serve V0.9 (unchanged).

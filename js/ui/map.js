@@ -1,9 +1,12 @@
 // Adventure map: one tall illustrated SVG (village → forest → cove), missions along a winding trail.
 // Locked zones sit under clouds that clear when the zone opens.
+// V1.1 "the world remembers": rescues leave lasting marks on the map (derived from progress, see
+// progression.world()) — a repaired bridge, fireflies, a forest signal network, Owl at home, buoys, a lit
+// lighthouse. Whisper Woods starts at dusk and brightens (and its music grows) as it recovers.
 import { ZONES, MISSIONS, zoneMissions } from '../game/catalog.js';
-import { missionStatus, currentMission, starsOf, zoneUnlocked, totalStars, allDone } from '../game/progression.js';
+import { missionStatus, currentMission, starsOf, zoneUnlocked, totalStars, allDone, world, forestLayers } from '../game/progression.js';
 import { getState, save, nickname } from '../state.js';
-import { play, unlockAudio } from '../audio.js';
+import { play, unlockAudio, setMusic } from '../audio.js';
 import { t, zoneName, missionText } from '../i18n.js';
 import {
   THEMES, hero as heroArt, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
@@ -18,7 +21,10 @@ const POS = {
   c1: [100, 1142], c2: [286, 1212], c3: [108, 1302], c4: [272, 1392], c5: [186, 1488],
 };
 const ZONE_Y = { village: [0, 556], forest: [556, 1066], cove: [1066, H] };
-const ICON = { repair: '🔨', unlock: '🔐', path: '🧭', light: '💡', rescue: '🎈' };
+const ICON = { repair: '🔨', unlock: '🔐', path: '🧭', light: '💡', rescue: '🎈', firefly: '✨', signal: '📡', nightRescue: '🏮', relay: '⛵', beacon: '⚡' };
+// Where each lasting world change lives on the map (camera target for its one-time reveal).
+const WORLD_AT = { v1: 384, f2: 720, f4: 820, f5: 990, c2: 1250, c4: 1230 };
+const FOREST_DIM = [0.3, 0.19, 0.09, 0];
 
 // Catmull-Rom → cubic Bézier through all points; also returns one sub-path per segment.
 function smoothPath(pts) {
@@ -35,7 +41,7 @@ function smoothPath(pts) {
   return { d, segs };
 }
 
-function scenery() {
+function scenery(w, fresh) {
   const V = THEMES.village, F = THEMES.forest, C = THEMES.cove;
   let s = `<defs>
     <linearGradient id="mp-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6cc4f4"/><stop offset="1" stop-color="#c9ecff"/></linearGradient>
@@ -54,7 +60,9 @@ function scenery() {
   // river with small bridge where the trail crosses
   s += `<path d="M-200 348 Q40 342 150 368 Q250 392 330 386 Q380 382 600 396 L600 426 Q380 412 330 416 Q240 422 146 398 Q40 372 -200 380Z" fill="#5cc0ec"/>`;
   s += `<path d="M-10 360 q12 -4 24 0 M90 372 q12 -4 24 0 M250 398 q12 -4 24 0 M350 396 q12 -4 24 0" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/>`;
-  s += `<g transform="translate(196 384) rotate(28)"><rect x="-16" y="-20" width="32" height="40" rx="4" fill="#cf8b4c"/>${[0, 1, 2, 3].map((i) => `<rect x="-16" y="${-18 + i * 10}" width="32" height="3" fill="#8d5629" opacity=".5"/>`).join('')}</g>`;
+  s += w.bridge
+    ? `<g class="wl wl-v1${fresh === 'v1' ? ' wl-new' : ''}"><g transform="translate(196 384) rotate(28)"><rect x="-16" y="-20" width="32" height="40" rx="4" fill="#cf8b4c"/>${[0, 1, 2, 3].map((i) => `<rect x="-16" y="${-18 + i * 10}" width="32" height="3" fill="#8d5629" opacity=".5"/>`).join('')}</g>${emo(238, 404, 15, '🦆')}</g>`
+    : `<g transform="translate(196 384) rotate(28)"><rect x="-16" y="-20" width="32" height="11" rx="3" fill="#b07a45"/><rect x="-16" y="10" width="32" height="10" rx="3" fill="#b07a45"/></g><rect x="150" y="398" width="16" height="5" rx="2" fill="#b07a45" transform="rotate(-12 158 400)"/>`;
   s += house(338, 176, 0.9) + house(372, 212, 0.7, '#6fa8ff') + house(36, 262, 0.8, '#ffb020') + windmill(356, 360, 0.9);
   s += roundTree(24, 190, 0.8, V.leaf, V.leafDark) + roundTree(214, 324, 0.6, V.leaf, V.leafDark) + roundTree(372, 262, 0.7, V.leaf, V.leafDark) + roundTree(22, 348, 0.7, V.leaf, V.leafDark) + roundTree(372, 520, 0.8, V.leaf, V.leafDark) + roundTree(120, 470, 0.6, V.leaf, V.leafDark);
   s += fence(210, 262, 170) + flower(236, 140) + flower(252, 150, '#ffd23f') + flower(222, 156, '#b98cff') + flower(60, 470) + flower(320, 520, '#ffd23f') + flower(240, 470);
@@ -72,7 +80,6 @@ function scenery() {
   const pines = [[20, 640], [372, 620], [30, 720], [380, 720], [16, 860], [370, 830], [34, 950], [384, 980], [200, 610], [206, 820], [60, 1010], [330, 1020], [180, 1040], [120, 900]];
   pines.forEach(([x, y], i) => { s += pine(x, y, 0.8 + (i % 3) * 0.15, F.leaf, F.leafDark); });
   s += mushroom(60, 670, 1.2) + mushroom(250, 760, 1) + mushroom(330, 690, 1.1) + mushroom(150, 1000, 1) + mushroom(250, 930, 0.9);
-  s += `<g class="fireflies">${[[70, 600], [240, 650], [340, 860], [60, 820], [220, 1000], [150, 700], [300, 960], [120, 880]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6"/>`).join('')}</g>`;
 
   // ── Cove ──
   s += `<path d="M-200 1066 Q40 1052 200 1070 Q330 1082 600 1062 L600 ${H + 40} L-200 ${H + 40}Z" fill="#f6e1a8"/>`;
@@ -84,6 +91,38 @@ function scenery() {
   s += crystal(200, 1350, 0.5, C.crystal, C.crystal2) + crystal(24, 1480, 0.8, C.crystal, C.crystal2) + rock(220, 1250, 0.6, C.stone, C.stoneDark) + rock(380, 1470, 0.7, C.stone, C.stoneDark);
   s += `<g transform="translate(360 1510)"><path d="M-18 -4 L18 -4 L13 6 L-13 6Z" fill="#bf8d5c"/><rect x="-1" y="-26" width="2" height="22" fill="#7a5433"/><path d="M1 -26 L14 -10 L1 -8Z" fill="#fff"/></g>`;
   s += emo(160, 1180, 16, '🐚') + emo(220, 1440, 16, '⭐') + emo(40, 1300, 14, '🦀');
+  return s;
+}
+
+// Lasting marks of rescues. `fresh` = the mission just completed for the first time (fades in once).
+function worldLayers(w, fresh) {
+  const cls = (id) => `wl wl-${id}${fresh === id ? ' wl-new' : ''}`;
+  const level = forestLayers();
+  const dimFrom = ['f2', 'f4', 'f5'].includes(fresh) ? FOREST_DIM[Math.max(0, level - 1)] : FOREST_DIM[level];
+  // Whisper Woods at dusk — a soft tint under the trail and the nodes, never dark or scary.
+  let s = `<path id="forest-dim" d="M-200 548 Q60 530 200 548 Q330 562 600 544 L600 1062 Q330 1082 200 1070 Q40 1052 -200 1066Z" fill="#1b2553" opacity="${dimFrom}" pointer-events="none"/>`;
+  if (w.fireflies) {
+    const ff = [[70, 600], [240, 650], [340, 860], [60, 820], [220, 1000], [150, 700], [300, 960], [120, 880], [330, 704], [262, 742], [40, 958], [176, 928], [372, 1004], [104, 770], [306, 640], [26, 690]];
+    s += `<g class="${cls('f2')}"><g class="ff-halo">${ff.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8"/>`).join('')}</g>
+      <g class="fireflies">${ff.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6"/>`).join('')}</g></g>`;
+  }
+  if (w.signal) {
+    const H = [236, 828];
+    const st = [[70, 748], [150, 664], [346, 656], [362, 930], [128, 962]];
+    s += `<g class="${cls('f4')}">${st.map(([x, y]) => `<path class="sig-line" d="M${H[0]} ${H[1]} Q${(H[0] + x) / 2} ${Math.min(H[1], y) - 30} ${x} ${y}"/>`).join('')}
+      ${[H, ...st].map(([x, y], i) => `<circle class="sig-glow" cx="${x}" cy="${y - 8}" r="${i ? 11 : 16}"/>${crystal(x, y, i ? 0.32 : 0.45, '#9ff5d0', '#6fd8ff')}`).join('')}</g>`;
+  }
+  if (w.owl) {
+    s += `<g class="${cls('f5')}"><circle cx="326" cy="990" r="22" class="owl-glow"/>${emo(326, 986, 20, '🦉')}
+      ${[[60, 670], [250, 760], [330, 690], [150, 1000], [250, 930]].map(([x, y]) => `<circle cx="${x}" cy="${y - 8}" r="11" class="mush-glow"/>`).join('')}</g>`;
+  }
+  if (w.relay) {
+    s += `<g class="${cls('c2')}">${[[378, 1176], [394, 1236], [386, 1330], [364, 1412]].map(([x, y]) => `<g transform="translate(${x} ${y})"><circle cy="-12" r="9" class="buoy-glow"/>
+      <ellipse cy="2" rx="7" ry="3.5" fill="#ff5a5f"/><rect x="-1.2" y="-12" width="2.4" height="12" fill="#fff"/><circle cy="-13" r="2.6" fill="#ffe066"/></g>`).join('')}</g>`;
+  }
+  if (w.beacon) {
+    s += `<g class="${cls('c4')}"><path class="beam-pulse" d="M384 1216 L296 1192 L296 1244Z" fill="#fff6b0"/><circle cx="384" cy="1216" r="18" class="lamp-halo"/></g>`;
+  }
   return s;
 }
 
@@ -136,6 +175,9 @@ function fogSvg(z, i) {
 
 export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params = {}) {
   const st = getState();
+  const w = world();
+  // First completion of a world-changing mission: its mark fades in once on arrival.
+  const fresh = params.justCompleted && params.reward && params.reward.firstTime && WORLD_AT[params.justCompleted] != null ? params.justCompleted : null;
   const cur = currentMission();
   const order = MISSIONS.map((m) => m.id);
   const pts = [{ x: HOME.x, y: HOME.y }, ...order.map((id) => ({ x: POS[id][0], y: POS[id][1] }))];
@@ -160,7 +202,8 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
   const heroAt = params.justCompleted && POS[params.justCompleted] ? POS[params.justCompleted] : cur ? POS[cur.id] : [HOME.x, HOME.y];
 
   const svg = `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg">
-    ${scenery()}
+    ${scenery(w, fresh)}
+    ${worldLayers(w, fresh)}
     <path d="${d}" class="trail-edge"/><path d="${d}" class="trail"/><path d="${d}" class="trail-dash"/>${trailDone}
     ${zoneBanner(ZONES[0], 240, 104)}${zoneBanner(ZONES[1], 226, 590)}${zoneBanner(ZONES[2], 228, 1098)}
     ${nodes}
@@ -186,6 +229,21 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
   const svgEl = host.querySelector('.map-svg');
   const hero = svgEl.querySelector('#map-hero');
   const toast = host.querySelector('.map-toast');
+
+  // Music follows the camera: the living Whisper Woods soundscape while the forest is on screen.
+  let musicZone = null;
+  let musicRaf = 0;
+  const updateMusic = () => {
+    const scale = svgEl.getBoundingClientRect().width / W;
+    if (!scale) return;
+    const y = (scroller.scrollTop + scroller.clientHeight / 2) / scale;
+    const inForest = y > ZONE_Y.forest[0] + 40 && y < ZONE_Y.forest[1] && zoneUnlocked('forest') && st.progress.revealedZones.includes('forest');
+    const zone = inForest ? 'forest' : 'map';
+    if (zone !== musicZone) { musicZone = zone; setMusic(zone, { layers: forestLayers() }); }
+  };
+  scroller.addEventListener('scroll', () => {
+    if (!musicRaf) musicRaf = requestAnimationFrame(() => { musicRaf = 0; updateMusic(); });
+  }, { passive: true });
 
   const scrollToY = (y, smooth) => {
     const scale = svgEl.getBoundingClientRect().width / W;
@@ -251,15 +309,32 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
   });
   toast.addEventListener('click', () => { toast.hidden = true; });
 
+  // The world remembers: show the lasting change once, right after the first rescue.
+  async function revealWorld(id) {
+    scrollToY(WORLD_AT[id], true);
+    await wait(550);
+    svgEl.querySelectorAll('.wl-new').forEach((g) => g.classList.add('wl-show'));
+    const dim = svgEl.querySelector('#forest-dim');
+    if (dim && ['f2', 'f4', 'f5'].includes(id)) {
+      const a = +dim.getAttribute('opacity'), b = FOREST_DIM[forestLayers()];
+      tween(1200, (k) => dim.setAttribute('opacity', String(a + (b - a) * k)));
+    }
+    play('restore');
+    showToast(t(`wr.${id}`), 3200);
+    await wait(1500);
+  }
+
   // Initial camera + post-mission choreography.
   requestAnimationFrame(async () => {
     const focus = params.justCompleted ? POS[params.justCompleted] : cur ? POS[cur.id] : [200, 120];
     scrollToY(focus[1], false);
+    updateMusic();
 
     if (params.justCompleted) {
       const doneNode = svgEl.querySelector(`.map-node[data-id="${params.justCompleted}"]`);
       if (params.reward && params.reward.starsAdded > 0 && doneNode) doneNode.classList.add('fresh');
       await wait(500);
+      if (fresh) await revealWorld(fresh);
       const from = order.indexOf(params.justCompleted);
       const to = cur ? order.indexOf(cur.id) : -1;
       if (cur && to > from && to - from <= 2 && MISSIONS[to].zone === MISSIONS[from].zone) {

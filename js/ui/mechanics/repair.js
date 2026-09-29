@@ -137,10 +137,22 @@ export function create({ root, mission, zone, P }) {
       retrigger(supply, 'wobble');   // nudge the eye back to the bundles: count them!
     },
     async onComplete() {
-      await moveG(hero, 318, deckY - 4, 500, { hop: 12 });
+      // V1.1 polish: the bridge you built really carries your friend — they cross it plank by plank
+      // (each plank's number glows under their feet) and meet you on your side.
       svg.querySelector(`#${P}call`).style.display = 'none';
-      svg.querySelector(`#${P}npc`).classList.replace('wait', 'cheer');
-      svgBurst(svg, 346, deckY - 70);
+      const npc = svg.querySelector(`#${P}npc`);
+      const walker = npc.parentNode;
+      walker.dataset.x = 346; walker.dataset.y = deckY - 26;
+      npc.classList.remove('wait');
+      await moveG(hero, gapL - 34, deckY - 4, 420, { hop: 12 });
+      for (let i = N - 1; i >= 0; i--) {
+        await moveG(walker, gapL + slotW * (i + 0.5), deckY - 26, 230, { hop: 10 });
+        slot(i).classList.add('glow');
+        play('count', N - 1 - i);
+      }
+      await moveG(walker, gapL + 8, deckY - 26, 260, { hop: 10 });
+      npc.classList.add('cheer');
+      svgBurst(svg, gapL - 12, deckY - 70);
       await wait(700);
     },
     destroy() {},

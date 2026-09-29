@@ -17,3 +17,7 @@ node_modules/
 
 # Original handoff pack (contents already extracted into docs/ and root)
 *.zip
+
+# Temporary session prompt files pasted into the repo root (not project docs)
+/promt*.txt
+/prompt*.txt

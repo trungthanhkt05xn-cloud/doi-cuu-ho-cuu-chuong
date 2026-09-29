@@ -51,6 +51,18 @@ export function allDone() {
   return MISSIONS.every((m) => isDone(m.id));
 }
 
+// ── The world remembers ──
+// Lasting changes in the world are DERIVED from mission completion (one source of truth): reload,
+// Continue, V1.0 saves and Reset Progress all stay consistent without any extra saved flags.
+export const WORLD = { bridge: 'v1', fireflies: 'f2', signal: 'f4', owl: 'f5', relay: 'c2', beacon: 'c4' };
+export function world() {
+  const w = {};
+  for (const [k, id] of Object.entries(WORLD)) w[k] = isDone(id);
+  return w;
+}
+/** How far Whisper Woods has recovered (0–3): fireflies → forest signal → owl home. */
+export const forestLayers = () => ['f2', 'f4', 'f5'].filter(isDone).length;
+
 export function starsFor(firstTryCorrect, total) {
   const r = total ? firstTryCorrect / total : 0;
   return r >= 0.85 ? 3 : r >= 0.5 ? 2 : 1;

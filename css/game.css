@@ -66,8 +66,8 @@
 .theme-village .m-top { background: #6cc4f4; }
 .theme-forest .m-top { background: #173f55; color: #fff; }
 .theme-cove .m-top { background: #57cdf3; }
-.m-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 19px; }
-.m-title span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: clamp(15px, 4.5vw, 19px); }
+.m-title span:last-child { overflow: hidden; line-height: 1.1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .m-npc { font-size: 26px; font-family: "Apple Color Emoji", "Segoe UI Emoji", var(--font); }
 .theme-forest .m-title { color: #fff; }
 .pips { display: flex; gap: 5px; flex: 0 0 auto; }
@@ -401,6 +401,11 @@
   .answers.keypad { gap: 8px; }
   .intro-npc { font-size: 44px; }
 }
+@media (max-width: 360px) {
+  .equation { font-size: 32px; gap: 6px; }
+  .task-icon { font-size: 24px; }
+  .help-btn { width: 46px; height: 46px; }
+}
 @media (min-height: 760px) and (max-aspect-ratio: 5/4) {
   .opt { min-height: 100px; font-size: 40px; }
   .skin-sign .opt { min-height: 104px; }
@@ -439,3 +444,124 @@
 @media (min-width: 700px) and (min-height: 700px) and (min-aspect-ratio: 5/4) {
   .m-panel { max-width: 600px; flex-basis: 44%; }
 }
+
+/* ═════════ V1.1 LIVING RESCUE WORLD ═════════ */
+/* World action: build the groups in the scene, then answer. Group elements carry an SVG transform
+   attribute, so effects animate their children (halo / hit ring / dots), never the group itself. */
+.scene-svg.acting { touch-action: none; -webkit-user-select: none; user-select: none; }
+.scene-svg .gt { cursor: pointer; }
+.scene-svg.acting .gt:not(.built) .hit { stroke: rgba(255, 243, 160, .55); stroke-width: 2; stroke-dasharray: 3 5; }
+.gt.nudge .hit, .gen.nudge .crank-hit { stroke: #fff3a0; stroke-width: 3; stroke-dasharray: 4 4; animation: nudge-ring 1.2s ease-out; }
+@keyframes nudge-ring { 0%, 60% { stroke-opacity: 1; } 100% { stroke-opacity: .4; } }
+.gt .halo, .station .st-glow, .buoy .by-glow { opacity: 0; transition: opacity .35s; }
+.gt.awake .halo, .station.on .st-glow, .buoy.on .by-glow { opacity: 1; }
+.gt.pulse .halo, .station.pulse .st-glow, .buoy.pulse .by-glow, .hub-glow.pulse, .flash.pulse .flash-bg, .cell.pulse .cell-body {
+  transform-box: fill-box; transform-origin: center; animation: halo-pulse .6s ease-out;
+}
+@keyframes halo-pulse { 0% { transform: scale(.8); opacity: 1; } 50% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+.flicker .ff, .flicker .sig, .flicker .pack, .flicker .spark, .flicker .spot { animation: flicker .6s ease-in-out; }
+@keyframes flicker { 30% { opacity: .35; } 60% { opacity: 1; } 80% { opacity: .6; } }
+.nest-n, .st-n, .by-n, .cell-n { font-weight: 900; font-size: 13px; fill: #fff3a0; paint-order: stroke; stroke: #22324d; stroke-width: 3px; }
+.hand-cue .hand-emo { font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif; transform-box: fill-box; transform-origin: center; animation: hand-tap .7s ease-in-out 3; pointer-events: none; }
+@keyframes hand-tap { 50% { transform: translateY(-8px); } }
+
+/* the answers area while building: a big forgiving prompt (tapping it builds the next group too) */
+.answers.act { display: flex; }
+.act-prompt { flex: 1; min-height: 72px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 16px;
+  border-radius: 20px; background: #fff; border: 3px dashed #ffc55a; font: inherit; font-size: 18px; font-weight: 800; color: var(--ink);
+  box-shadow: 0 4px 0 #f0dd98; animation: rise .3s ease-out; }
+.act-prompt:active { transform: translateY(2px); }
+.act-hand { font-size: 28px; font-family: "Apple Color Emoji", "Segoe UI Emoji", var(--font); animation: bounce 1.2s ease-in-out infinite; }
+.equation.growing .n.grow { color: #2fb07a; min-width: .8em; display: inline-block; }
+.equation.growing .n.grow.empty { min-width: 1em; height: .95em; border: 3px dashed #c9d2e1; border-radius: 12px; }
+.equation .tick { transform-origin: center; animation: pop-scale .3s cubic-bezier(.2, 1.8, .4, 1); }
+
+/* night-scene answer buttons */
+.skin-glow .opt { color: #ffe98a; background: linear-gradient(180deg, #2c4368, #1b2a48); border: 3px solid #5673a8; box-shadow: 0 6px 0 #0f1a30, 0 8px 14px rgba(0, 0, 0, .15); }
+.theme-cove .skin-glow .opt { color: #0b4f6c; background: linear-gradient(180deg, #e6fbff, #a8ecff); border-color: #2a9ec6; box-shadow: 0 6px 0 #1d7aa0; }
+
+/* fireflies */
+.nest .bush circle { fill: #173a2f; stroke: #2e604c; stroke-width: 1.5; }
+.nest .ff, .lant .ff { fill: #53705f; transition: fill .25s calc(var(--i) * 30ms); }
+.nest.awake .ff, .lant.awake .ff { fill: #fff27a; }
+.nest .ffs { transition: transform .6s ease-in, opacity .6s ease-in; }
+.nest.rise .ffs { transform: translateY(-18px); opacity: 0; }
+.swarm circle { fill: #fff27a; }
+
+/* forest signal */
+.station .st-body { fill: #203b38; stroke: #5d8f84; stroke-width: 2; transition: stroke .3s; }
+.station.on .st-body { stroke: #9ff5d0; }
+.station .st-mast { fill: #5d8f84; }
+.station .sig, .flash .sig { fill: #3f5b56; transition: fill .2s calc(var(--i) * 30ms); }
+.station.on .sig, .flash .sig.on { fill: #9ff5d0; }
+.flash .flash-bg { fill: #1b3431; stroke: #5d8f84; stroke-width: 1.5; }
+.link { fill: none; stroke: #9ff5d0; stroke-width: 3; stroke-linecap: round; opacity: .85; }
+.link-pulse { fill: none; stroke: #fff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 8 100; stroke-dashoffset: 8; opacity: 0; }
+.link-pulse.run { animation: link-run .6s ease-out; }
+@keyframes link-run { 0% { opacity: 1; stroke-dashoffset: 8; } 100% { opacity: 1; stroke-dashoffset: -100; } }
+.rubber { stroke: #9ff5d0; stroke-width: 3; stroke-dasharray: 5 5; stroke-linecap: round; pointer-events: none; }
+.hub-glow { opacity: .85; }
+
+/* ocean relay */
+.buoy .by-float { fill: #ff5a5f; stroke: #fff; stroke-width: 2; }
+.buoy .by-mast { fill: #fff; }
+.buoy .by-lamp { fill: #55627a; transition: fill .3s; }
+.buoy.on .by-lamp { fill: #ffe066; }
+.buoy .by-rack { fill: #173a55; stroke: #7fd8f0; stroke-width: 1.5; }
+.buoy .pack { fill: #3d5a73; transition: fill .2s calc(var(--i) * 30ms); }
+.buoy.on .pack { fill: #ffd23f; }
+.beam { fill: none; stroke: #fff6b0; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; animation: beam-draw .45s forwards; }
+@keyframes beam-draw { to { stroke-dashoffset: 0; } }
+
+/* lighthouse generator */
+.cable { fill: none; stroke: #3a4b6b; stroke-width: 3; }
+.cable-spark { fill: #fff6b0; }
+.scene-svg.acting .crank-hit { stroke: rgba(255, 210, 63, .7); stroke-width: 2.5; stroke-dasharray: 4 6; cursor: pointer; }
+.cell .cell-body { fill: #1b2a48; stroke: #7d8bb0; stroke-width: 1.5; transition: stroke .3s; }
+.cell.on .cell-body { stroke: #ffe066; }
+.cell .cell-tip { fill: #7d8bb0; }
+.cell .spark { fill: #3a4766; transition: fill .2s calc(var(--i) * 30ms), opacity .4s; }
+.cell.on .spark { fill: #ffe066; }
+.cell.drain .spark { opacity: .25; }
+.meter-hit { cursor: pointer; }
+
+/* night rescue */
+.story rect { fill: #fff; opacity: .94; }
+.story text { font-weight: 800; font-size: 14px; fill: #22324d; }
+.story { transition: opacity .4s; pointer-events: none; }
+.tree { cursor: pointer; }
+.tree-sign { fill: #f3e2b8; stroke: #8d5629; stroke-width: 2.5; }
+.tree-num { font-weight: 900; font-size: 20px; fill: #3b2412; }
+.tree.found .hollow { fill: #ffcf5a; }
+.tree.empty { opacity: .55; }
+.stone { fill: #3b4a55; stroke: #56687a; stroke-width: 2; transition: fill .3s, stroke .3s; }
+.stone.lit { fill: #9ff5d0; stroke: #fff; }
+.mush .m-cap { fill: #5e3550; stroke: #8f5a80; stroke-width: 1.5; transition: fill .3s; }
+.mush.awake .m-cap { fill: #c94f9a; }
+.mush .m-stem { fill: #d9cbb8; }
+.mush .spot { fill: #8a6a80; transition: fill .2s calc(var(--i) * 30ms); }
+.mush.awake .spot { fill: #fff27a; }
+.lant .l-body { fill: #5a3a22; stroke: #7a3b12; stroke-width: 2; transition: fill .3s; }
+.lant.awake .l-body { fill: #ffb347; }
+.lant .l-top { fill: #7a3b12; }
+
+/* repair: the friend walks the finished bridge — planks glow under their feet */
+.slot.glow .plank rect { fill: #ffe27a; transition: fill .2s; }
+
+/* map: the world remembers */
+.wl-new { opacity: 0; }
+.wl-new.wl-show { opacity: 1; transition: opacity 1.4s ease; }
+.ff-halo circle { fill: #fff59a; opacity: .16; }
+.sig-line { fill: none; stroke: #9ff5d0; stroke-width: 2; stroke-dasharray: 3 5; opacity: .7; }
+.sig-glow { fill: #9ff5d0; animation: soft-glow 3.2s ease-in-out infinite; }
+.owl-glow { fill: #fff3a0; opacity: .35; }
+.mush-glow { fill: #ffb3e0; opacity: .3; }
+.buoy-glow { fill: #ffe066; opacity: .35; }
+.beam-pulse { animation: soft-glow 4s ease-in-out infinite; }
+.lamp-halo { fill: #fff6b0; opacity: .6; }
+@keyframes soft-glow { 0%, 100% { opacity: .18; } 50% { opacity: .45; } }
+
+/* home: music toggle (off = soft strike-through, not a warning colour) */
+.music-btn { position: relative; }
+.music-btn.off { opacity: .55; }
+.music-btn.off::after { content: ""; position: absolute; width: 58%; height: 3px; border-radius: 2px; background: var(--ink-soft); transform: rotate(-45deg); }

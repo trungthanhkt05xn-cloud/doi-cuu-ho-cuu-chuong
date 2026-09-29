@@ -20,10 +20,10 @@ export function defaultState() {
     learning: {
       facts: {},            // "7x8" -> fact record (see learning/engine.js)
       qCount: 0,            // questions presented so far (spacing clock)
-      wrongFactQueue: [],   // remediation after a mistake: { key, dueQ } (see learning/engine.js)
+      wrongFactQueue: [],   // remediation after a mistake: { key, dueQ, from? } (see learning/engine.js)
       recent: [],           // last presented fact keys
     },
-    settings: { sound: true, language: 'vi' },   // language: V1.0 final — older saves get 'vi' via merge
+    settings: { sound: true, music: true, language: 'vi' },   // older saves get music/language defaults via merge
   };
 }
 
@@ -105,7 +105,8 @@ export function load() {
     state = merge(defaultState(), migrate(data));
     state.learning.facts = sanitizeFacts(state.learning.facts);
     state.learning.wrongFactQueue = state.learning.wrongFactQueue
-      .filter((q) => q && typeof q.key === 'string' && /^\d+x\d+$/.test(q.key) && Number.isFinite(q.dueQ)).slice(-24);
+      .filter((q) => q && typeof q.key === 'string' && /^\d+x\d+$/.test(q.key) && Number.isFinite(q.dueQ)).slice(-24)
+      .map((q) => (typeof q.from === 'string' && /^[a-z]\d$/.test(q.from) ? { key: q.key, dueQ: q.dueQ, from: q.from } : { key: q.key, dueQ: q.dueQ }));
     state.profile.nickname = cleanNickname(state.profile.nickname);
     state.learning.recent = state.learning.recent.filter((k) => typeof k === 'string').slice(-6);
     if (!LANGS.includes(state.settings.language)) state.settings.language = 'vi';
@@ -136,7 +137,7 @@ export const hasProfile = () => !!state.profile.avatarId;
 export const nickname = () => state.profile.nickname || t('nick.default');
 
 export function resetProgress() {
-  const settings = state.settings;   // device preferences (sound, language) survive a progress reset
+  const settings = state.settings;   // device preferences (sound, music, language) survive a progress reset
   state = defaultState();
   state.settings = settings;
   save();
