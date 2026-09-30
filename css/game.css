@@ -118,10 +118,12 @@
 
 /* answers: choices */
 .answers { position: relative; }
-.answers.choices { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
-.answers.choices.n4 { grid-template-columns: repeat(4, 1fr); }
+/* minmax(0, 1fr): the grid can never grow wider than its panel, so no choice ever hides off to the side */
+.answers.choices { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.answers.choices.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.answers.choices.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .opt {
-  position: relative; min-height: 84px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  position: relative; min-width: 0; padding: 0 4px; min-height: 84px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
   font-weight: 900; font-size: 36px; font-variant-numeric: tabular-nums; animation: opt-in .35s calc(var(--i) * 60ms) cubic-bezier(.2, 1.4, .4, 1) both;
   transition: transform .1s, opacity .25s, filter .25s;
 }
@@ -443,6 +445,19 @@
 }
 @media (min-width: 700px) and (min-height: 700px) and (min-aspect-ratio: 5/4) {
   .m-panel { max-width: 600px; flex-basis: 44%; }
+}
+/* Landscape side panel (iPad / desktop): four in a row would be ~90px each and can spill sideways,
+   so four choices sit in a 2 × 2 grid. Short phone landscape keeps one row (height is scarce there). */
+@media (min-aspect-ratio: 5/4) and (min-height: 521px) {
+  .answers.choices.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .n4.skin-balloon .opt, .n4.skin-lantern .opt, .n4.skin-bubble .opt { min-height: 132px; }
+  .n4.skin-balloon .opt .opt-art, .n4.skin-lantern .opt .opt-art, .n4.skin-bubble .opt .opt-art { width: 96px; height: 132px; margin-left: -48px; }
+  .n4.skin-balloon .opt .num, .n4.skin-lantern .opt .num, .n4.skin-bubble .opt .num { font-size: 38px; top: -18px; }
+}
+/* Four-in-a-row bulbs (phones): a smaller bulb leaves room for a two-digit answer */
+@media (max-width: 699px), (max-height: 520px) {
+  .skin-bulb.n4 .opt { gap: 2px; }
+  .skin-bulb.n4 .bulb-art { width: 16px; height: 22px; }
 }
 
 /* ═════════ V1.1 LIVING RESCUE WORLD ═════════ */

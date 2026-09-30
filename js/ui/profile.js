@@ -39,16 +39,28 @@ export function renderProfile(host, { mode = 'onboard', onDone, onBack }) {
   input.value = profile.nickname || '';   // .value — user text never goes through innerHTML
   let step = 'pick';
 
-  function toName() {
+  const body = $('.profile-body');
+  function toName(byKeyboard) {
     step = 'name';
     $('.pf-pick').hidden = true;
     $('.pf-name').hidden = false;
     $('.pf-me').innerHTML = avatarSvg(picked, 'happy', 'pf-av big');
+    // The next step always starts at the top; if "Xong" still doesn't fit (short window), bring it
+    // gently into view once — the child never has to discover the next button by scrolling.
+    body.scrollTop = 0;
+    const actions = $('.pf-actions');
+    if (actions.getBoundingClientRect().bottom > body.getBoundingClientRect().bottom) {
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      actions.scrollIntoView({ block: 'end', behavior: calm ? 'auto' : 'smooth' });
+    }
+    // Keyboard path: focus moves to the name box (touch doesn't, so no keyboard pops up uninvited).
+    if (byKeyboard) input.focus({ preventScroll: true });
   }
   function toPick() {
     step = 'pick';
     $('.pf-name').hidden = true;
     $('.pf-pick').hidden = false;
+    body.scrollTop = 0;
   }
   function finish(nick) {
     // Only identity fields change; stars / missions / mastery / stickers / badges / queue stay untouched.
@@ -67,7 +79,8 @@ export function renderProfile(host, { mode = 'onboard', onDone, onBack }) {
       picked = b.dataset.id;
       host.querySelectorAll('.avatar-opt').forEach((o) => { o.classList.toggle('on', o === b); o.setAttribute('aria-pressed', String(o === b)); });
       play('pop');
-      setTimeout(toName, 220);   // a beat to see the choice, then straight on
+      const byKeyboard = e.detail === 0;   // Enter / Space on the button (a pointer click has detail ≥ 1)
+      setTimeout(() => toName(byKeyboard), 220);   // a beat to see the choice, then straight on
       return;
     }
     const act = b.dataset.act;
