@@ -6,6 +6,23 @@ export const LANGS = ['vi', 'en'];
 let lang = 'vi';
 
 const vi = {
+  "pulse.title": "Thế giới gọi bạn!",
+  "pulse.invite": "{place} cần bạn giúp một chút.",
+  "pulse.later": "Để lúc khác",
+  "pulse.intro": "Bạn cũ cần giúp thêm một chút. Cùng làm thế giới sáng lên nhé!",
+  "pulse.bloom": "Một chú bướm đã ghé khu vườn!",
+  "garden.grow": "Khu vườn lớn lên cùng bạn.",
+  "garden.book": "Mỗi lần luyện tập, khu vườn lại lớn thêm. Bạn bè luôn chờ bạn!",
+  "adaptive.add": "Thêm một đom đóm",
+  "adaptive.remove": "Bớt một đom đóm",
+  "adaptive.fill": "Đưa vào tổ ✨",
+  "adaptive.ffAct": "Gom đủ một nhóm rồi đưa vào từng tổ.",
+  "adaptive.ffNudge": "Chạm + để gom nhóm, rồi đưa vào tổ.",
+  "adaptive.sgAct": "Chọn nhóm đèn vừa với mỗi trạm rồi nối dây.",
+  "adaptive.sgNudge": "Chọn nhóm có cùng số đèn với trạm.",
+  "adaptive.lights": "Nhóm {n} đèn",
+  "adaptive.route": "Nối trạm 📡",
+
   'doc.title': 'Đội Cứu Hộ Cửu Chương · Math Rescue Adventure',
   'screen.home': 'Trang chủ', 'screen.map': 'Bản đồ', 'screen.mission': 'Nhiệm vụ', 'screen.album': 'Sổ cứu hộ', 'screen.profile': 'Nhân vật của bạn',
 
@@ -100,6 +117,23 @@ const vi = {
 };
 
 const en = {
+  "pulse.title": "The world is calling!",
+  "pulse.invite": "{place} could use a little help.",
+  "pulse.later": "Another time",
+  "pulse.intro": "An old friend could use a little help. Let’s brighten the world together!",
+  "pulse.bloom": "A butterfly has joined your garden!",
+  "garden.grow": "Your garden grows with you.",
+  "garden.book": "Each practice helps your garden grow. Your friends are always here!",
+  "adaptive.add": "Add one firefly",
+  "adaptive.remove": "Remove one firefly",
+  "adaptive.fill": "Fill a nest ✨",
+  "adaptive.ffAct": "Make one group, then fill each nest.",
+  "adaptive.ffNudge": "Tap + to make a group, then fill a nest.",
+  "adaptive.sgAct": "Choose lights that fit a station, then connect it.",
+  "adaptive.sgNudge": "Choose a group with as many lights as a station.",
+  "adaptive.lights": "Group of {n} lights",
+  "adaptive.route": "Connect 📡",
+
   'doc.title': 'Math Rescue Adventure',
   'screen.home': 'Home', 'screen.map': 'Map', 'screen.mission': 'Mission', 'screen.album': 'Rescue Book', 'screen.profile': 'Your hero',
 

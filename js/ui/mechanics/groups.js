@@ -19,6 +19,16 @@ export function groupSlots(count, { x0, x1, y0, y1 }, maxR = 28) {
   return { pts, r };
 }
 
+/** Echo's alternate picture: b columns, each containing a lights, rather than scattered bundles. */
+export function arraySlots(count, { x0, x1, y0, y1 }) {
+  const cell = (x1 - x0) / count;
+  return { r: Math.min(24, cell / 2 - 2), pts: Array.from({ length: count }, (_, k) => ({ x: x0 + cell * (k + 0.5), y: (y0 + y1) / 2 })) };
+}
+export function columnDots(n, r) {
+  const step = Math.min(8, r * 1.6 / Math.max(1, n - 1));
+  return { dr: Math.max(1.4, Math.min(3, step * 0.32)), pts: Array.from({ length: n }, (_, k) => ({ x: 0, y: (k - (n - 1) / 2) * step })) };
+}
+
 /** n dots packed dice-style around (0,0) inside radius r — small groups can be seen at a glance. */
 export function dotGrid(n, r) {
   const cols = n <= 1 ? 1 : n <= 4 ? 2 : 3;

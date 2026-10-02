@@ -56,6 +56,7 @@ export function renderAlbum(host, { onBack, onEditProfile }) {
       <section class="card"><h3>${t('bk.badges')}</h3><div class="badges">${badges}</div></section>
       <section class="card"><h3>${t('bk.friends')} <span class="count">${p.stickers.length}/15</span></h3>${stickers}</section>
       <section class="card"><h3>${t('bk.power')}</h3><p class="muted">${t('bk.legend')} ${STAGES.map((s) => `${s.icon} ${t('stage.' + s.id)}`).join(' → ')}</p><div class="gems">${TABLES.map(gem).join('')}</div></section>
+      <section class="card learner-note"><p>🌱 ${t('garden.book')}${getState().pulse.blooms.length ? ' 🦋' : ''}</p></section>
     </div>
   </div>`;
   host.querySelector('.me-card .nick').textContent = nickname();   // user text: textContent only

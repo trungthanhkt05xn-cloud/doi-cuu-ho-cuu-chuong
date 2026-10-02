@@ -38,7 +38,8 @@ let keyHandler = null;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const starSvg = (on) => `<svg viewBox="0 0 40 40" class="star ${on ? 'on' : ''}" aria-hidden="true"><path d="${starPath(20, 21, 18)}"/></svg>`;
 
-export function renderMission(host, missionId, { onExit, onDone }) {
+export function renderMission(host, missionId, { onExit, onDone, pulse = null }) {
+  if (host.missionCleanup) host.missionCleanup();
   const mission = missionById(missionId);
   const zone = zoneById(mission.zone);
   const P = `m${++uid}-`;
@@ -69,7 +70,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
           <div class="intro-card">
             <div class="intro-duo"><span class="intro-av">${heroAvatar('happy')}</span><span class="intro-npc">${mission.npc.e}</span></div>
             <h2>${t('ms.needsYou', { nick: '<span class="nick"></span>', npc: esc(npcName(mission)) })}</h2>
-            <p>${esc(missionText(mission, 'intro'))}</p>
+            <p>${esc(pulse ? t('pulse.intro') : missionText(mission, 'intro'))}</p>
             <button class="btn btn-primary big" data-act="start">${t('ms.go')}</button>
           </div>
         </div>
@@ -99,6 +100,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   const fillNick = (el) => el.querySelectorAll('.nick').forEach((n) => { n.textContent = nickname(); });
   fillNick(root);
   let busy = true;
+  let disposed = false;
   let phase = 'intro';
   let typed = '';
   let optionEls = [];
@@ -119,7 +121,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     ready: () => onReady(),
   });
   kind = mech.answerKind;
-  const session = new MissionSession(mission, { answerKind: mech.answerKind, optionCount: mech.optionCount });
+  const session = new MissionSession(mission, { answerKind: mech.answerKind, optionCount: mech.optionCount, pulse });
   $('.task-icon').textContent = mech.icon;
   $('.task-instr').textContent = mech.instruction;
   const firstTimeType = !st.progress.tutorial.mechanics[mission.type];
@@ -186,6 +188,8 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   }
 
   function renderEquation(q) {
+    eqEl.dataset.a = q.a;
+    eqEl.dataset.b = q.b;
     if (acting) {
       // While the groups are being built the equation grows with them: a × 1, a × 2 … a × b.
       eqEl.classList.add('growing');
@@ -196,13 +200,17 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     const slot = kind === 'keypad' ? `<span class="ans-slot typing">${typed || '<i class="caret"></i>'}</span>` : '<span class="ans-slot">?</span>';
     if (okKey) okKey.disabled = !typed;
     eqEl.innerHTML = `<span class="n">${q.a}</span><span class="op">×</span><span class="n">${q.b}</span><span class="op">=</span>${slot}`;
-    eqEl.dataset.a = q.a;
-    eqEl.dataset.b = q.b;
   }
 
   // ── V1.1 world action: build the groups first ──
   function renderActPrompt() {
     answersEl.className = 'answers act';
+    if (mech.actionControls) {
+      answersEl.className += ' world-controls';
+      answersEl.innerHTML = mech.actionControls(session.q);
+      optionEls = []; okKey = null;
+      return;
+    }
     // A real button: a big, forgiving target (and the keyboard / switch-access path) — it builds the next group.
     answersEl.innerHTML = `<button class="act-prompt" data-act="act"><span class="act-hand" aria-hidden="true">👆</span><span>${esc(mech.actionHow)}</span></button>`;
     optionEls = [];
@@ -218,7 +226,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   }
 
   function onReady() {
-    if (!acting || phase !== 'play') return;
+    if (disposed || !acting || phase !== 'play') return;
     acting = false;
     renderAnswers(session.options);
     renderEquation(session.q);
@@ -269,11 +277,12 @@ export function renderMission(host, missionId, { onExit, onDone }) {
 
   // ── flow ──
   function nextStep() {
+    if (disposed) return;
     kind = mech.kindFor ? mech.kindFor(session.step) : mech.answerKind;
     const { q, options } = session.next(kind, mech.optionsFor ? mech.optionsFor(session.step) : mech.optionCount);
     typed = '';
     grown = 0;
-    acting = !!(mech.action && (!mech.actsOn || mech.actsOn(session.step)));
+    acting = !!(mech.action && (!mech.actsOn || mech.actsOn(session.step, q)));
     if (acting) renderActPrompt();
     else renderAnswers(options);
     renderEquation(q);
@@ -291,7 +300,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   }
 
   async function onAnswer(value, el) {
-    if (busy || phase !== 'play' || acting) return;
+    if (disposed || busy || phase !== 'play' || acting) return;
     unlockAudio();
     answersEl.classList.remove('tutorial');
     eqEl.classList.remove('tutorial');
@@ -313,7 +322,9 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       const line = recovered ? t('ms.recovered') : combo >= 3 ? t('ms.combo', { n: combo }) : `✓ ${mech.correctLine[Math.floor(Math.random() * mech.correctLine.length)]}`;
       floatText(sceneHost, line, 'good', mech.floatAt || 0.35);   // mechanics keep it off their a × b groups
       await wait(kind === 'keypad' ? 280 : 120);
+      if (disposed) return;
       await mech.onCorrect(stepIdx, el, value);
+      if (disposed) return;
       updatePips();
       if (res.done) await finish();
       else nextStep();
@@ -335,6 +346,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   async function finish() {
     phase = 'done';
     await mech.onComplete();
+    if (disposed) return;
     const reward = session.finish();
     // The world remembers: a restored place sounds different from now on (Whisper Woods gains a layer).
     missionMusic(zone);
@@ -347,6 +359,7 @@ export function renderMission(host, missionId, { onExit, onDone }) {
     const box = $('.phase-success');
     const title = t(mission.finale ? 'rw.finale' : `rw.t${Math.min(3, Math.max(1, r.stars))}`);
     let extras = '';
+    if (r.pulse) extras += `<div class="reward-chip">🦋 ${t('pulse.bloom')}</div>`;
     if (r.sticker) extras += `<div class="reward-chip"><span class="big">${r.sticker.e}</span> ${t('rw.sticker')} <b>${esc(npcName(mission))}</b></div>`;
     if (r.badge) extras += `<div class="reward-chip badge"><span class="big">${r.badge.icon}</span> <b>${esc(badgeName(zone))}</b></div>`;
     if (r.newZone) extras += `<div class="reward-chip zone">${t('rw.zone')} <b>${esc(zoneName(r.newZone))}</b></div>`;
@@ -389,12 +402,15 @@ export function renderMission(host, missionId, { onExit, onDone }) {
       nextStep();
     } else if (act === 'act' && phase === 'play' && acting) {
       if (mech.actNext) mech.actNext();
+    } else if (['world-add', 'world-remove', 'world-send', 'world-charge'].includes(act) && phase === 'play' && acting && !busy) {
+      if (mech.handleAction) mech.handleAction(act, b.dataset.value);
     } else if (act === 'help' && phase === 'play' && !busy) {
       play('hint');
       if (acting) {
-        // 💡 while building: show WHERE to tap — this is about the action, not the math (no hint recorded).
+        // Legacy actions point out WHERE to tap. V1.2's grouping/routing hints are learning support.
         if (mech.actionHint) mech.actionHint();
-        showHint({ level: 0, title: mech.actionNudge || '' });
+        if (mech.actionControls) showHint(session.help());
+        else showHint({ level: 0, title: mech.actionNudge || '' });
       } else showHint(session.help());
     } else if (act === 'exit') {
       play('tap');
@@ -424,10 +440,13 @@ export function renderMission(host, missionId, { onExit, onDone }) {
   }
 
   function cleanup() {
+    if (disposed) return;
+    disposed = true;
     if (keyHandler) document.removeEventListener('keydown', keyHandler);
     keyHandler = null;
     mech.destroy();
   }
+  host.missionCleanup = cleanup;
 
   bindKeypad();
 

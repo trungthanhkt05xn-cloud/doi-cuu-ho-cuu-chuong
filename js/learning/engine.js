@@ -24,7 +24,8 @@ function ensureFact(k) {
   const facts = L().facts;
   if (!facts[k]) {
     facts[k] = { attempts: 0, correct: 0, wrong: 0, streak: 0, lastSeen: null, lastResult: null,
-      lastMs: null, avgResponseMs: null, mastery: 0, recovered: 0, assisted: 0 };
+      lastMs: null, avgResponseMs: null, mastery: 0, recovered: 0, assisted: 0,
+      independent: 0, supported: 0, lastSupported: false, lastRepresentation: null };
   }
   return facts[k];
 }
@@ -37,9 +38,9 @@ function staleness(f, now) {
   return clamp01(hours / interval);
 }
 
-function weightedPick(items) {
+function weightedPick(items, rng = Math.random) {
   const total = items.reduce((s, it) => s + it.w, 0);
-  let r = Math.random() * total;
+  let r = rng() * total;
   for (const it of items) { r -= it.w; if (r <= 0) return it; }
   return items[items.length - 1];
 }
@@ -53,12 +54,12 @@ const MIX = { target: 0.5, review: 0.3, easy: 0.2 };
  */
 export function nextQuestion(ctx) {
   const lp = L();
-  const now = Date.now();
+  const now = ctx.now ?? Date.now();
+  const rng = ctx.rng || Math.random;
   const allowed = [...new Set([...ctx.allowed, ...ctx.tables])];
   const recent = lp.recent;
   const last = recent[recent.length - 1];
-  const lastAnswer = last ? productOf(last) : null;
-  const blocked = (k) => recent.slice(-4).includes(k) || (last && k === twinOf(last)) || productOf(k) === lastAnswer;
+  const blocked = (k) => recent.slice(-4).includes(k) || recent.slice(-2).some((r) => k === twinOf(r) || productOf(k) === productOf(r));
 
   let chosen = null;
   let source = 'target';
@@ -70,11 +71,10 @@ export function nextQuestion(ctx) {
   const wq = lp.wrongFactQueue;
   const idx = lp.qCount + 1;   // number of the question about to be shown
   if (ctx.lastSource !== 'remediation') {
-    const clash = (k) => k === last || (last && k === twinOf(last)) || productOf(k) === lastAnswer;
     const due = wq
       .filter((it) => it.dueQ <= idx && allowed.includes(parseKey(it.key).a) && !(ctx.remediated && ctx.remediated.has(it.key)))
       .sort((x, y) => x.dueQ - y.dueQ);
-    const it = due.find((d) => !clash(d.key));
+    const it = due.find((d) => !recent.slice(-2).some((k) => d.key === k || d.key === twinOf(k) || productOf(d.key) === productOf(k)));
     if (it) {
       chosen = it.key;
       source = 'remediation';
@@ -103,14 +103,14 @@ export function nextQuestion(ctx) {
     }
     const names = Object.keys(MIX).filter((n) => buckets[n].length);
     if (names.length) {
-      const bucket = weightedPick(names.map((n) => ({ n, w: MIX[n] }))).n;
-      chosen = weightedPick(buckets[bucket]).k;
+      const bucket = weightedPick(names.map((n) => ({ n, w: MIX[n] })), rng).n;
+      chosen = weightedPick(buckets[bucket], rng).k;
       source = bucket;
     } else {
       // Everything blocked (tiny pool) — relax to "not the same as last".
       const pool = [];
       ctx.tables.forEach((a) => MULTS.forEach((b) => { if (keyOf(a, b) !== last) pool.push(keyOf(a, b)); }));
-      chosen = pool[Math.floor(Math.random() * pool.length)];
+      chosen = pool[Math.floor(rng() * pool.length)];
     }
   }
 
@@ -118,7 +118,18 @@ export function nextQuestion(ctx) {
   lp.recent.push(chosen);
   if (lp.recent.length > 6) lp.recent.shift();
   const { a, b } = parseKey(chosen);
-  return { key: chosen, a, b, answer: a * b, source, from };
+  return { key: chosen, a, b, answer: a * b, source, from, encounter: encounterFor(chosen, ctx.mechanic, source) };
+}
+
+/** Fade support using evidence, not speed. Echo changes the picture without revealing the product. */
+export function encounterFor(key, mechanic, source = 'target') {
+  if (!['firefly', 'signal'].includes(mechanic)) return { support: 'recall', representation: 'recall' };
+  const f = factOf(key);
+  const confident = f && f.mastery >= 0.65 && f.independent >= 2 && f.lastResult === true && !f.lastSupported;
+  const support = confident && source !== 'remediation' ? 'recall' : f && f.mastery >= 0.25 && f.lastResult !== false ? 'structure' : 'groups';
+  const base = mechanic === 'signal' ? 'array' : 'groups';
+  const representation = support === 'recall' ? 'recall' : source === 'remediation' && f?.lastRepresentation === base ? (base === 'groups' ? 'array' : 'groups') : base;
+  return { support, representation };
 }
 
 /**
@@ -126,24 +137,28 @@ export function nextQuestion(ctx) {
  * remediation = this question was the "second chance" for an earlier mistake.
  * from = mission id where it was asked (remembered with a queued mistake for Fact Echo).
  */
-export function recordAnswer(key, { correct, ms, hinted = false, remediation = false, from = null }) {
+export function recordAnswer(key, { correct, ms, hinted = false, supported = false, representation = 'recall', remediation = false, from = null, now = Date.now() }) {
   const lp = L();
   const f = ensureFact(key);
   f.attempts += 1;
-  f.lastSeen = Date.now();
+  f.lastSeen = now;
+  f.lastSupported = hinted || supported;
+  f.lastRepresentation = representation;
   f.lastResult = correct;
   f.lastMs = Math.round(ms);
   // The second chance is used up once answered (leaving mid-question keeps it queued for later).
   if (remediation) lp.wrongFactQueue = lp.wrongFactQueue.filter((it) => it.key !== key);
   if (correct) {
     f.correct += 1;
-    f.streak += 1;
+    f.streak = hinted || supported ? 0 : f.streak + 1;
     const speed = ms < 4000 ? 1 : ms < 8000 ? 0.7 : 0.45;       // slow answers grow mastery less
-    const gain = hinted ? 0.05 : 0.16 * speed + 0.03 * Math.min(f.streak - 1, 3);
+    const gain = hinted ? 0.05 : supported ? 0.08 : 0.16 * speed + 0.03 * Math.min(f.streak - 1, 3);
     f.mastery = clamp01(f.mastery + gain);
     f.avgResponseMs = f.avgResponseMs == null ? Math.round(ms) : Math.round(f.avgResponseMs * 0.7 + ms * 0.3);
     if (remediation) f.recovered = (f.recovered || 0) + 1;
     if (hinted) f.assisted = (f.assisted || 0) + 1;
+    if (supported) f.supported += 1;
+    if (!hinted && !supported) f.independent += 1;
   } else {
     f.wrong += 1;
     f.streak = 0;
