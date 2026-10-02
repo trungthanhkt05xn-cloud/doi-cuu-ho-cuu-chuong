@@ -1,7 +1,10 @@
 # V1.2 — Adaptive Living Rescue candidate
 
 Baseline: `v1.1.0`, `5dd96b71c8be920719ddbbe4d1943ecc749d77ce`.
-Branch: `feature/v1.2-adaptive-living-rescue`. This is a QA candidate, not a release.
+Branch: `feature/v1.2-adaptive-living-rescue`, PR #1. Candidate `2c079bf27e0ded0df06fe99b031cf7954cdc2483`
+passed owner-reported real-device QA on the tested preview https://0bc4c978.doi-cuu-ho-cuu-chuong.pages.dev/.
+The owner explicitly authorized merge, `v1.2.0` tagging and existing production deployment on 2026-10-02.
+Final release references and production verification are recorded in PR #1.
 
 The world now uses learning evidence to change how a familiar rescue is played. No new world, mission pack, backend, dependency, account, or audio rewrite was added.
 
@@ -22,7 +25,7 @@ Schema **3**, storage key still `mra.save.v1`. V1 passes through its existing qu
 
 ## Automated verification
 
-Candidate validation: **PASS** — all 8 logic tests; the complete Chromium browser script (exit 0); and `git diff --check`. No checks were skipped. No page/console errors or failed HTTP responses were observed. Real-device and child QA below remain unrun.
+Candidate validation: **PASS** — all 8 logic tests; the complete Chromium browser script (exit 0); and `git diff --check`. No checks were skipped. No page/console errors or failed HTTP responses were observed. Owner-reported real-device QA subsequently passed; cloud automation does not establish device results. Child-play observations below remain follow-up work.
 
 From the repository root:
 
@@ -53,10 +56,12 @@ Responsive dimensions: 390×844, 1024×768, 1133×744, 430×932, 440×956, 360×
 - Return rescues reuse the existing 3–5-step regular missions. Their intended short session duration is a child-QA estimate, not a measured guarantee or timer.
 - Added cleanup for navigation away during asynchronous world actions.
 
-## Real-device / human QA required
+## Real-device / human QA checklist (release history and follow-up)
+
+Owner real-device testing is reported PASS in the release authorization; no per-device test matrix was supplied.
 
 - iPad Pro 9.7-inch and iPad mini 6, portrait and landscape: onboarding controls, all four answers, Signal keypad, touch targets, array clarity, and Hint overlay.
 - iPhone 13 Pro Max / 16 Pro Max, representative Android phone/tablet, and desktop: safe areas, orientation, direct touch/sweep, repeated keypad digits, back/exit, and reload persistence.
 - Real children aged about 8–9: understand the jar and bundle-routing actions, recognize the immediate world consequence, tolerate mistakes, use Hint comfortably, and find return rescues inviting; measure actual session duration.
 - Human listening: Living Soundscape and independent Music/Sound controls. The released old-iPad background-music distortion observation is unchanged and has not been re-evaluated here.
-- Independent QA of a preview before any release decision. No merge, tag, or production deployment is authorized by this task.
+- Preview QA and owner real-device PASS authorized the V1.2 release. Remaining child-play observations are follow-up work, not a new release gate.
