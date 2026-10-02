@@ -1,6 +1,5 @@
-// Mechanic G (V1.1) — FOREST SIGNAL. Green Frog is lost in the mist. a × b = b signal stations × a lights.
-// 1. ACTION: connect the old signal tree to every station — tap a station, or drag from the tree across the
-//    stations (the vine snaps on; no precise drawing). Each station switches on its a lights with a note.
+// FOREST SIGNAL. V1.2: choose the bundle that fits a station's a sockets, then route it to b stations.
+// Each mathematically matched connection clears some mist before total retrieval.
 // 2. RECALL (keypad): how many signal lights are on?
 // 3. CONSEQUENCE: a pulse runs through the whole network (a, 2a, 3a …) and pushes the mist back; the last
 //    pulse finds Frog.
@@ -8,7 +7,7 @@ import { THEMES, svgWrap, defs, sceneBackdrop, hero, emo, pine, mushroom, crysta
 import { wait, tween, svgBurst, retrigger } from '../fx.js';
 import { play } from '../../audio.js';
 import { t, tList } from '../../i18n.js';
-import { groupSlots, dotGrid, groupInput, handCue, caption } from './groups.js';
+import { groupSlots, arraySlots, dotGrid, columnDots, groupInput, handCue, caption } from './groups.js';
 
 const HUB = { x: 62, y: 74 };
 
@@ -38,11 +37,13 @@ export function create({ root, mission, zone, P, grew, ready }) {
   const mist = svg.querySelector(`#${P}mist`);
   const rubber = svg.querySelector(`#${P}rubber`);
   let q = null, built = 0, landed = 0, lay = null, acting = false;
+  let charge = 0, mistStart = 0, destroyed = false;
 
   function draw() {
-    lay = groupSlots(q.b, { x0: 132, x1: 392, y0: 128, y1: 240 }, 26);
+    const box = { x0: 132, x1: 392, y0: 128, y1: 240 };
+    lay = q.encounter.representation === 'array' ? arraySlots(q.b, box) : groupSlots(q.b, box, 26);
     const r = lay.r;
-    const { pts, dr } = dotGrid(q.a, r * 0.7);
+    const { pts, dr } = q.encounter.representation === 'array' ? columnDots(q.a, r * 0.7) : dotGrid(q.a, r * 0.7);
     let links = '';
     let st = caption(200, 22, t('mech.sgCap', { a: q.a }));
     lay.pts.forEach((c, k) => {
@@ -63,7 +64,8 @@ export function create({ root, mission, zone, P, grew, ready }) {
   }
 
   function build(g) {
-    if (!acting) return;
+    if (!acting || g.classList.contains('built')) return;
+    if (charge !== q.a) { retrigger(g, 'nudge'); return; }
     g.classList.add('built');
     built += 1;
     grew(built);
@@ -71,14 +73,17 @@ export function create({ root, mission, zone, P, grew, ready }) {
     const k = +g.dataset.k;
     const link = svg.querySelector(`#${P}link${k}`);
     tween(260, (e) => link.setAttribute('stroke-dasharray', `${e * 100} 100`)).then(() => {
+      if (destroyed) return;
       g.classList.add('on');
       g.querySelector('.st-n').textContent = String(q.a);
       landed += 1;
+      mist.setAttribute('opacity', String(mistStart - (landed / q.b) * (0.92 / N) * 0.5));
       if (landed === q.b && acting) {
         acting = false;
         svg.classList.remove('acting');
         rubber.setAttribute('opacity', '0');
-        wait(380).then(ready);
+        if (q.encounter.support === 'structure') svg.classList.add('scaffold-faded');
+        wait(380).then(() => { if (!destroyed) ready(); });
       }
     });
   }
@@ -110,16 +115,41 @@ export function create({ root, mission, zone, P, grew, ready }) {
 
   return {
     action: true, answerKind: 'keypad', floatAt: 0.3,
+    actsOn(i, question) { return question.encounter.support !== 'recall'; },
+    actionControls(question) {
+      const values = [Math.max(1, question.a - 1), question.a, question.a + 1];
+      // Stable, varied positions; no dependence on uncontrolled randomness.
+      const shift = question.b % 3;
+      const ordered = values.slice(shift).concat(values.slice(0, shift));
+      return ordered.map((n) => {
+        const { pts, dr } = dotGrid(n, 19);
+        return `<button class="world-charge" data-act="world-charge" data-value="${n}" aria-pressed="false" aria-label="${t('adaptive.lights', { n })}"><svg viewBox="-24 -24 48 48" aria-hidden="true">${pts.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="${dr}"/>`).join('')}</svg></button>`;
+      }).join('') + `<button class="world-send" data-act="world-send">${t('adaptive.route')}</button>`;
+    },
+    handleAction(act, value) {
+      if (!acting) return;
+      if (act === 'world-charge') {
+        charge = Number(value);
+        root.closest('.mission').querySelectorAll('.world-charge').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.value) === charge)));
+        play('signal');
+      } else if (act === 'world-send') { const g = nextUnbuilt(); if (g) build(g); }
+    },
     icon: '📡',
-    actionInstruction: t('mech.sgAct'), actionHow: t('mech.sgHow'), actionNudge: t('mech.sgNudge'),
+    actionInstruction: t('adaptive.sgAct'), actionHow: t('mech.sgHow'), actionNudge: t('adaptive.sgNudge'),
     instruction: t('mech.sg'),
     correctLine: tList('mech.sgOk'),
     setQuestion(question) {
       q = question;
       built = 0; landed = 0;
-      acting = true;
-      svg.classList.add('acting');
+      charge = 0; mistStart = +mist.getAttribute('opacity');
+      acting = q.encounter.support !== 'recall';
+      svg.classList.toggle('acting', acting);
+      svg.classList.toggle('scaffold-faded', !acting);
       draw();
+      if (!acting) {
+        stEl.querySelectorAll('.station').forEach((n) => n.classList.add('built', 'on'));
+        linksEl.querySelectorAll('.link').forEach((n) => n.setAttribute('stroke-dasharray', '100 100'));
+      }
     },
     actNext() { const g = nextUnbuilt(); if (g) build(g); },
     actionHint() {
@@ -130,6 +160,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
       stEl.querySelectorAll('.gt:not(.built)').forEach((n) => retrigger(n, 'nudge'));
     },
     onHint(h) {
+      svg.classList.remove('scaffold-faded');
       if (h.level > 2) return;
       [...stEl.querySelectorAll('.station')].forEach((n, k) => setTimeout(() => retrigger(n, 'pulse'), k * 160));
     },
@@ -168,6 +199,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
       await wait(900);
     },
     destroy() {
+      destroyed = true; acting = false;
       off();
       svg.removeEventListener('pointerdown', onDown);
       svg.removeEventListener('pointermove', onMove);

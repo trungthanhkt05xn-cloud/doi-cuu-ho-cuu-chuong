@@ -2,7 +2,7 @@
 import { t, LANGS } from './i18n.js';
 
 const KEY = 'mra.save.v1';   // storage key stays the same across schema versions
-const VERSION = 2;           // v2: profile (nickname/avatar) + wrongFactQueue
+const VERSION = 3;           // v3: retrieval evidence + calm World Pulse (same storage key)
 
 export function defaultState() {
   return {
@@ -23,6 +23,7 @@ export function defaultState() {
       wrongFactQueue: [],   // remediation after a mistake: { key, dueQ, from? } (see learning/engine.js)
       recent: [],           // last presented fact keys
     },
+    pulse: { lastVisit: 0, lastCompleted: 0, blooms: [], garden: { village: 0, forest: 0, cove: 0 } },
     settings: { sound: true, music: true, language: 'vi' },   // older saves get music/language defaults via merge
   };
 }
@@ -31,6 +32,8 @@ let state = defaultState();
 let storageOk = true;
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+const validFactKey = (k) => typeof k === 'string' && /^[2-9]x(?:[1-9]|10)$/.test(k);
+const count = (v) => Number.isFinite(Number(v)) ? Math.max(0, Math.floor(Number(v))) : 0;
 
 // Merge loaded data onto defaults, keeping only values whose type matches.
 function merge(def, src) {
@@ -60,6 +63,7 @@ function migrate(data) {
     delete l.queue;
     data.version = 2;
   }
+  if (data.version === 2) data.version = 3; // merge supplies all new defaults; no progress reset
   return data;
 }
 
@@ -72,20 +76,24 @@ export function cleanNickname(v) {
 function sanitizeFacts(facts) {
   const clean = {};
   for (const [k, f] of Object.entries(facts)) {
-    if (!/^\d+x\d+$/.test(k) || !isObj(f)) continue;
+    if (!validFactKey(k) || !isObj(f)) continue;
     const m = Number(f.mastery);
     clean[k] = {
-      attempts: +f.attempts || 0,
-      correct: +f.correct || 0,
-      wrong: +f.wrong || 0,
-      streak: +f.streak || 0,
+      attempts: count(f.attempts),
+      correct: count(f.correct),
+      wrong: count(f.wrong),
+      streak: count(f.streak),
       lastSeen: Number.isFinite(f.lastSeen) ? f.lastSeen : null,
       lastResult: typeof f.lastResult === 'boolean' ? f.lastResult : null,
       lastMs: Number.isFinite(f.lastMs) ? f.lastMs : null,
       avgResponseMs: Number.isFinite(f.avgResponseMs) ? f.avgResponseMs : null,
       mastery: Number.isFinite(m) ? Math.min(1, Math.max(0, m)) : 0,
-      recovered: +f.recovered || 0,
-      assisted: +f.assisted || 0,
+      recovered: count(f.recovered),
+      assisted: count(f.assisted),
+      independent: Number.isFinite(f.independent) ? count(f.independent) : Math.max(0, count(f.correct) - count(f.assisted)),
+      supported: count(f.supported),
+      lastSupported: typeof f.lastSupported === 'boolean' ? f.lastSupported : count(f.assisted) > 0,
+      lastRepresentation: ['groups', 'array', 'recall'].includes(f.lastRepresentation) ? f.lastRepresentation : null,
     };
   }
   return clean;
@@ -105,10 +113,15 @@ export function load() {
     state = merge(defaultState(), migrate(data));
     state.learning.facts = sanitizeFacts(state.learning.facts);
     state.learning.wrongFactQueue = state.learning.wrongFactQueue
-      .filter((q) => q && typeof q.key === 'string' && /^\d+x\d+$/.test(q.key) && Number.isFinite(q.dueQ)).slice(-24)
+      .filter((q) => q && validFactKey(q.key) && Number.isFinite(q.dueQ)).slice(-24)
       .map((q) => (typeof q.from === 'string' && /^[a-z]\d$/.test(q.from) ? { key: q.key, dueQ: q.dueQ, from: q.from } : { key: q.key, dueQ: q.dueQ }));
     state.profile.nickname = cleanNickname(state.profile.nickname);
-    state.learning.recent = state.learning.recent.filter((k) => typeof k === 'string').slice(-6);
+    state.learning.recent = state.learning.recent.filter(validFactKey).slice(-6);
+    state.learning.qCount = Number.isFinite(state.learning.qCount) ? Math.max(0, Math.floor(state.learning.qCount)) : 0;
+    for (const k of ['lastVisit', 'lastCompleted']) state.pulse[k] = Number.isFinite(state.pulse[k]) ? Math.max(0, state.pulse[k]) : 0;
+    state.pulse.blooms = [...new Set(state.pulse.blooms.filter((id) => typeof id === 'string' && /^[vfc][1-5]$/.test(id)))].slice(-15);
+    for (const zone of ['village', 'forest', 'cove']) state.pulse.garden[zone] = Number.isFinite(state.pulse.garden[zone]) ? Math.max(0, Math.min(3, Math.floor(state.pulse.garden[zone]))) : 0;
+    state.version = VERSION;
     if (!LANGS.includes(state.settings.language)) state.settings.language = 'vi';
   } catch (e) {
     console.warn('Save data unreadable, starting fresh.');

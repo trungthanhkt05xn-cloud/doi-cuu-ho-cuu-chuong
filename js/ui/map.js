@@ -12,6 +12,7 @@ import {
   THEMES, hero as heroArt, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
 } from './art.js';
 import { tween, place, wait, floatText, retrigger, confetti } from './fx.js';
+import { pulseOffer, claimPulse, dismissPulse, learnerGarden } from '../game/worldPulse.js';
 
 const W = 400, H = 1580;
 const HOME = { x: 70, y: 124 };
@@ -199,11 +200,18 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     if (i > 0 && (!unlocked || !revealed)) fogs += fogSvg(z, i);
   });
 
+  const offer = pulseOffer();
+  const gardens = ZONES.map((z, i) => {
+    const n = learnerGarden(z.id);
+    const bloomed = st.pulse.blooms.some((id) => MISSIONS.find((m) => m.id === id)?.zone === z.id);
+    return n ? `<g class="learner-garden" role="img" aria-label="${t('garden.grow')}">${Array.from({ length: n }, (_, k) => flower(28 + k * 18, [330, 850, 1370][i], '#ffe066')).join('')}${bloomed ? emo(58, [306, 826, 1346][i], 20, '🦋') : ''}</g>` : '';
+  }).join('');
   const heroAt = params.justCompleted && POS[params.justCompleted] ? POS[params.justCompleted] : cur ? POS[cur.id] : [HOME.x, HOME.y];
 
   const svg = `<svg class="map-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg">
     ${scenery(w, fresh)}
     ${worldLayers(w, fresh)}
+    ${gardens}
     <path d="${d}" class="trail-edge"/><path d="${d}" class="trail"/><path d="${d}" class="trail-dash"/>${trailDone}
     ${zoneBanner(ZONES[0], 240, 104)}${zoneBanner(ZONES[1], 226, 590)}${zoneBanner(ZONES[2], 228, 1098)}
     ${nodes}
@@ -221,6 +229,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
       <button class="icon-btn" data-act="album" aria-label="${t('ui.album')}">🎒</button>
       <button class="icon-btn" data-act="settings" aria-label="${t('ui.settings')}">⚙️</button>
     </header>
+    ${offer ? `<div class="pulse-card"><button class="pulse-play" data-act="pulse"><span>${offer.mission.npc.e}</span><span><b>${t('pulse.title')}</b><small>${t('pulse.invite', { place: missionText(offer.mission, 'short') })}</small></span></button><button class="icon-btn" data-act="dismiss-pulse" aria-label="${t('pulse.later')}">✕</button></div>` : ''}
     <div class="map-scroll"><div class="map-inner">${svg}</div></div>
     <div class="map-toast" hidden></div>
   </div>`;
@@ -308,6 +317,18 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     if (b.dataset.act === 'settings') onSettings();
   });
   toast.addEventListener('click', () => { toast.hidden = true; });
+  host.querySelector('.pulse-card')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    unlockAudio(); play('tap');
+    if (b.dataset.act === 'pulse') {
+      const picked = claimPulse(offer.mission.id);
+      if (picked) onPlay(picked.mission.id, picked);
+    } else if (b.dataset.act === 'dismiss-pulse') {
+      dismissPulse();
+      host.querySelector('.pulse-card').remove();
+    }
+  });
 
   // The world remembers: show the lasting change once, right after the first rescue.
   async function revealWorld(id) {

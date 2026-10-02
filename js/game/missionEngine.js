@@ -4,9 +4,10 @@ import { zoneById, zoneIndex } from './catalog.js';
 import { completeMission, starsFor, unlockedTables } from './progression.js';
 import { nextQuestion, recordAnswer, makeOptions, hintFor } from '../learning/engine.js';
 import { save } from '../state.js';
+import { completePulse } from './worldPulse.js';
 
 export class MissionSession {
-  constructor(mission, { answerKind, optionCount }) {
+  constructor(mission, { answerKind, optionCount, pulse = null }) {
     this.mission = mission;
     this.zone = zoneById(mission.zone);
     this.level = zoneIndex(mission.zone) + 1;
@@ -18,8 +19,9 @@ export class MissionSession {
     this.helpedCorrect = 0;   // first-try correct after a voluntary hint (no star cost)
     this.reward = null;
     this.q = null;
+    this.pulse = pulse;
     // Per-mission learning context: remediation happens at most once per fact per mission.
-    this.ctx = { tables: this.zone.tables, allowed: unlockedTables(), remediated: new Set(), lastSource: null };
+    this.ctx = { tables: pulse ? [pulse.table] : this.zone.tables, allowed: unlockedTables(), mechanic: mission.type, remediated: new Set(), lastSource: null };
   }
 
   /** kind: answer UI for this step (chained missions can mix choices and keypad). */
@@ -40,7 +42,9 @@ export class MissionSession {
     const q = this.q;
     const correct = Number(value) === q.answer;
     if (!this.recorded) {
-      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0, remediation: q.source === 'remediation', from: this.mission.id });
+      recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0,
+        supported: q.encounter.support === 'groups', representation: q.encounter.representation,
+        remediation: q.source === 'remediation', from: this.mission.id });
       this.recorded = true;
       // Stars count actual mistakes only: the 💡 button raises hintLevel but is not a wrong answer.
       if (correct && this.misses === 0) {
@@ -74,6 +78,7 @@ export class MissionSession {
     this.reward.firstTry = this.firstTryCorrect;
     this.reward.total = this.total;
     this.reward.helped = this.helpedCorrect;
+    this.reward.pulse = !!this.pulse && completePulse(this.mission.id);
     save();
     return this.reward;
   }

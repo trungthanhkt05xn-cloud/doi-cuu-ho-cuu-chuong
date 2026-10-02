@@ -1,9 +1,22 @@
 # PROJECT STATUS
 
 ## Current phase
-**V1.1 "Living Rescue World"** on `feature/v1.1-living-rescue-world` (from `v1.0.0` = `6b73f7d`) — **PARTIAL**:
-all targeted checks PASS in headless Chromium; iPhone/iPad audio + touch **NEED REAL-DEVICE RETEST** before merge/tag.
-`main` = V1.0 (released, verified on iPhone Safari).
+**V1.2 "Adaptive Living Rescue" — release approved, version `v1.2.0`.**
+Owner real-device QA: **PASS** (owner report, release authorization dated 2026-10-02).
+Automated logic/browser regression: **PASS**. Tested Cloudflare candidate preview:
+https://0bc4c978.doi-cuu-ho-cuu-chuong.pages.dev/
+
+PR #1 delivers adaptive learner evidence, fading support and changed Fact Echo representations,
+Fireflies grouping, Forest Signal routing, optional World Pulse rescues, persistent gardens/butterflies,
+and schema 3 migration preserving V1/V2 saves. See [V1.2 notes](docs/V1_2_CANDIDATE.md).
+The final merge, tag and production verification are recorded in PR #1; production uses the existing
+main-branch GitHub Pages / Cloudflare Pages integrations.
+
+Known non-blocking observation: background music can sound slightly distorted on the older iPad Pro 9.7-inch;
+no audio rewrite was included. Actual return-session duration and child-play observations remain follow-up work.
+
+Historical V1.0/V1.1 development and QA records below describe their original candidate stages.
+Released baselines: `v1.0.0` = `6b73f7d`, `v1.1.0` = `5dd96b7`; their historical pending-QA notes are not the current V1.2 release status.
 
 ## V1.1 — what changed
 Principle: MATH → WORLD ACTION → WORLD CONSEQUENCE. a × b is still **b groups of a** (V1.0 convention, same as the hint).

@@ -8,6 +8,7 @@ import { renderAlbum } from './ui/album.js';
 import { renderProfile } from './ui/profile.js';
 import { hero, heroAvatar, cloud, roundTree, pine, house, windmill, lighthouse, palm, crystal, emo, THEMES } from './ui/art.js';
 import { totalStars, currentMission, allDone } from './game/progression.js';
+import { beginVisit } from './game/worldPulse.js';
 
 const screens = {
   home: document.getElementById('screen-home'),
@@ -22,6 +23,7 @@ let navToken = 0;
 // Screen swap without a blank frame: the new screen is built on top of the old one (which stays
 // painted underneath), fades in over ~180 ms, then the old one is hidden and its DOM freed.
 function show(name, params = {}, mode = 'push') {
+  if (currentScreen === 'mission' && name !== 'mission' && screens.mission.missionCleanup) screens.mission.missionCleanup();
   const prev = currentScreen && currentScreen !== name ? screens[currentScreen] : null;
   const next = screens[name];
   currentScreen = name;
@@ -32,7 +34,7 @@ function show(name, params = {}, mode = 'push') {
   if (name === 'home' || name === 'album' || name === 'profile') setMusic('map');
   if (name === 'home') renderHome();
   if (name === 'map') renderMap(screens.map, mapHandlers, params);
-  if (name === 'mission') renderMission(screens.mission, params.id, missionHandlers);
+  if (name === 'mission') renderMission(screens.mission, params.id, { ...missionHandlers, pulse: params.pulse });
   if (name === 'album') renderAlbum(screens.album, { onBack: () => show('map', {}, 'replace'), onEditProfile: () => show('profile', { mode: 'edit' }) });
   if (name === 'profile') {
     const done = () => show(params.mode === 'edit' ? 'album' : 'map', {}, 'replace');
@@ -64,7 +66,7 @@ function show(name, params = {}, mode = 'push') {
 }
 
 const mapHandlers = {
-  onPlay: (id) => show('mission', { id }),
+  onPlay: (id, pulse = null) => show('mission', { id, pulse }),
   onHome: () => show('home', {}, 'replace'),
   onAlbum: () => show('album'),
   onSettings: () => openSettings(),
@@ -248,6 +250,7 @@ function closeSettings() {
 
 // ── Boot ──
 load();
+beginVisit();
 setLang(getState().settings.language);
 labelScreens();
 setSoundEnabled(getState().settings.sound);
