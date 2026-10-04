@@ -323,6 +323,7 @@ export function renderMission(host, missionId, { onExit, onDone, pulse = null })
       floatText(sceneHost, line, 'good', mech.floatAt || 0.35);   // mechanics keep it off their a × b groups
       await wait(kind === 'keypad' ? 280 : 120);
       if (disposed) return;
+      mech.onForestChange?.(res.forest);
       await mech.onCorrect(stepIdx, el, value);
       if (disposed) return;
       updatePips();

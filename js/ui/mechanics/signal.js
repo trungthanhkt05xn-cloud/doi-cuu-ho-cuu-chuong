@@ -9,18 +9,23 @@ import { play } from '../../audio.js';
 import { t, tList } from '../../i18n.js';
 import { groupSlots, arraySlots, dotGrid, columnDots, groupInput, handCue, caption } from './groups.js';
 
+import { forestStage } from '../../game/forestSystem.js';
+import { receiver, habitat, lightTransfer } from './forestArt.js';
+
 const HUB = { x: 62, y: 74 };
 
 export function create({ root, mission, zone, P, grew, ready }) {
   const T = THEMES[zone.id];
   const N = mission.steps;
+  const stage = forestStage();
+  const mistBase = stage === 'quiet' ? .92 : .72;
   let s = defs(P, T) + sceneBackdrop(zone.id, P, T);
   s += `<rect x="-400" y="224" width="1200" height="400" fill="url(#${P}ground)"/>`;
   s += pine(420, 250, 1.4) + mushroom(24, 270, 1.1) + rock(380, 262, 0.8, T.stone, T.stoneDark);
   // Frog's hiding place (top right) under a bank of mist
   s += `<ellipse cx="338" cy="100" rx="40" ry="10" fill="#2b6a55"/><ellipse cx="338" cy="98" rx="30" ry="6" fill="#3aa06f"/>
     <g transform="translate(338 84)"><g id="${P}npc" class="npc hidden-npc">${emo(0, 0, 30, mission.npc.e)}</g></g>
-    <g id="${P}mist" class="mist" opacity=".92">${[[300, 70, 70, 34], [360, 96, 64, 30], [320, 118, 80, 24], [382, 60, 50, 30], [250, 96, 50, 26]]
+    <g id="${P}mist" class="mist" opacity="${mistBase}">${[[300, 70, 70, 34], [360, 96, 64, 30], [320, 118, 80, 24], [382, 60, 50, 30], [250, 96, 50, 26]]
       .map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#e8f3f5"/>`).join('')}</g>`;
   // The old signal tree (hub)
   s += `<path d="M40 226 L52 100 L72 100 L86 226Z" fill="#6b4524"/><path d="M62 100 L72 100 L86 226 L72 226Z" fill="#000" opacity=".15"/>`;
@@ -30,6 +35,8 @@ export function create({ root, mission, zone, P, grew, ready }) {
   s += `<circle id="${P}hubHit" cx="${HUB.x}" cy="${HUB.y}" r="36" fill="transparent"/>`;
   s += hero(104, 226, 0.5, `${P}hero`);
 
+  s += receiver(HUB.x, HUB.y, stage !== 'quiet') + habitat(276, 250, stage === 'connected');
+  s += `<path class="habitat-link" d="M62 94 Q36 250 264 250" fill="none" stroke="#ffe98a" stroke-width="2" opacity="${stage === 'connected' ? .7 : .15}"/><text class="forest-cue" x="200" y="50" text-anchor="middle" fill="#ffe98a" font-size="11">${t(stage === 'quiet' ? 'forest.waiting' : stage === 'lit' ? 'forest.route' : 'forest.habitat')}</text>`;
   root.innerHTML = svgWrap(s, { cls: 'scene-svg acting', par: 'xMidYMax meet' });
   const svg = root.querySelector('svg');
   const linksEl = svg.querySelector(`#${P}links`);
@@ -77,7 +84,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
       g.classList.add('on');
       g.querySelector('.st-n').textContent = String(q.a);
       landed += 1;
-      mist.setAttribute('opacity', String(mistStart - (landed / q.b) * (0.92 / N) * 0.5));
+      mist.setAttribute('opacity', String(mistStart - (landed / q.b) * (mistBase / N) * 0.5));
       if (landed === q.b && acting) {
         acting = false;
         svg.classList.remove('acting');
@@ -138,10 +145,13 @@ export function create({ root, mission, zone, P, grew, ready }) {
     actionInstruction: t('adaptive.sgAct'), actionHow: t('mech.sgHow'), actionNudge: t('adaptive.sgNudge'),
     instruction: t('mech.sg'),
     correctLine: tList('mech.sgOk'),
-    setQuestion(question) {
+    setQuestion(question, i) {
       q = question;
       built = 0; landed = 0;
-      charge = 0; mistStart = +mist.getAttribute('opacity');
+      // Earned firefly light supplies the first reusable bundle; the child still routes b groups.
+      charge = stage !== 'quiet' && i === 0 && q.encounter.support !== 'recall' ? q.a : 0;
+      root.closest('.mission').querySelectorAll('.world-charge').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.value) === charge)));
+      mistStart = +mist.getAttribute('opacity');
       acting = q.encounter.support !== 'recall';
       svg.classList.toggle('acting', acting);
       svg.classList.toggle('scaffold-faded', !acting);
@@ -164,6 +174,17 @@ export function create({ root, mission, zone, P, grew, ready }) {
       if (h.level > 2) return;
       [...stEl.querySelectorAll('.station')].forEach((n, k) => setTimeout(() => retrigger(n, 'pulse'), k * 160));
     },
+    onForestChange(change) {
+      if (!change?.changed) return;
+      lightTransfer(svg, 'M62 94 Q36 250 264 250', () => !destroyed, () => {
+        const target = svg.querySelector('.forest-habitat');
+        target.dataset.connected = 'true';
+        target.querySelector('.forest-wildlife').setAttribute('opacity', '1');
+        svg.querySelector('.habitat-link').setAttribute('opacity', '.7');
+        svg.querySelector('.forest-cue').textContent = t('forest.habitat');
+        svgBurst(svg, 276, 227, { chars: ['✨', '🦋'], n: 4 });
+      });
+    },
     async onCorrect(i) {
       const cap = stEl.querySelector('.caption');
       if (cap) cap.classList.add('fade-out');
@@ -179,7 +200,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
       }
       play('whoosh');
       const from = +mist.getAttribute('opacity');
-      const to = 0.92 * (1 - (i + 1) / N);
+      const to = mistBase * (1 - (i + 1) / N);
       await tween(700, (e) => mist.setAttribute('opacity', String(from + (to - from) * e)));
       await wait(200);
       stEl.classList.add('fade-out');

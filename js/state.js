@@ -2,7 +2,7 @@
 import { t, LANGS } from './i18n.js';
 
 const KEY = 'mra.save.v1';   // storage key stays the same across schema versions
-const VERSION = 3;           // v3: retrieval evidence + calm World Pulse (same storage key)
+const VERSION = 4;           // v4: bounded Forest connection + last mechanic evidence
 
 export function defaultState() {
   return {
@@ -23,6 +23,7 @@ export function defaultState() {
       wrongFactQueue: [],   // remediation after a mistake: { key, dueQ, from? } (see learning/engine.js)
       recent: [],           // last presented fact keys
     },
+    forest: { stage: 'quiet' }, // quiet → lit → connected; earned changes never decay
     pulse: { lastVisit: 0, lastCompleted: 0, blooms: [], garden: { village: 0, forest: 0, cove: 0 } },
     settings: { sound: true, music: true, language: 'vi' },   // older saves get music/language defaults via merge
   };
@@ -64,6 +65,7 @@ function migrate(data) {
     data.version = 2;
   }
   if (data.version === 2) data.version = 3; // merge supplies all new defaults; no progress reset
+  if (data.version === 3) data.version = 4;
   return data;
 }
 
@@ -94,6 +96,7 @@ function sanitizeFacts(facts) {
       supported: count(f.supported),
       lastSupported: typeof f.lastSupported === 'boolean' ? f.lastSupported : count(f.assisted) > 0,
       lastRepresentation: ['groups', 'array', 'recall'].includes(f.lastRepresentation) ? f.lastRepresentation : null,
+      lastMechanic: ['firefly', 'signal'].includes(f.lastMechanic) ? f.lastMechanic : null,
     };
   }
   return clean;
@@ -121,6 +124,7 @@ export function load() {
     for (const k of ['lastVisit', 'lastCompleted']) state.pulse[k] = Number.isFinite(state.pulse[k]) ? Math.max(0, state.pulse[k]) : 0;
     state.pulse.blooms = [...new Set(state.pulse.blooms.filter((id) => typeof id === 'string' && /^[vfc][1-5]$/.test(id)))].slice(-15);
     for (const zone of ['village', 'forest', 'cove']) state.pulse.garden[zone] = Number.isFinite(state.pulse.garden[zone]) ? Math.max(0, Math.min(3, Math.floor(state.pulse.garden[zone]))) : 0;
+    if (!['quiet', 'lit', 'connected'].includes(state.forest.stage)) state.forest.stage = 'quiet';
     state.version = VERSION;
     if (!LANGS.includes(state.settings.language)) state.settings.language = 'vi';
   } catch (e) {

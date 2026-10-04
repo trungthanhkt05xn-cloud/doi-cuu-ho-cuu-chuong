@@ -12,6 +12,8 @@ import {
   THEMES, hero as heroArt, emo, cloud, roundTree, pine, bush, mushroom, flower, house, windmill, palm, crystal, rock, lighthouse, fence, starPath,
 } from './art.js';
 import { tween, place, wait, floatText, retrigger, confetti } from './fx.js';
+import { forestStage } from '../game/forestSystem.js';
+import { receiver, habitat } from './mechanics/forestArt.js';
 import { pulseOffer, claimPulse, dismissPulse, learnerGarden } from '../game/worldPulse.js';
 
 const W = 400, H = 1580;
@@ -200,6 +202,8 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     if (i > 0 && (!unlocked || !revealed)) fogs += fogSvg(z, i);
   });
 
+  const stage = forestStage();
+  const forestConnection = stage === 'quiet' ? '' : `<g class="forest-connection" data-stage="${stage}" role="img" aria-label="${t(stage === 'lit' ? 'forest.arrived' : 'forest.habitat')}"><path d="M330 704 Q370 790 236 808${stage === 'connected' ? ' Q160 840 52 854' : ''}" fill="none" stroke="#ffe98a" stroke-width="3" stroke-dasharray="5 5"/>${receiver(236, 808, true)}${habitat(52, 854, stage === 'connected')}</g>`;
   const offer = pulseOffer();
   const gardens = ZONES.map((z, i) => {
     const n = learnerGarden(z.id);
@@ -212,6 +216,7 @@ export function renderMap(host, { onPlay, onHome, onAlbum, onSettings }, params 
     ${scenery(w, fresh)}
     ${worldLayers(w, fresh)}
     ${gardens}
+    ${forestConnection}
     <path d="${d}" class="trail-edge"/><path d="${d}" class="trail"/><path d="${d}" class="trail-dash"/>${trailDone}
     ${zoneBanner(ZONES[0], 240, 104)}${zoneBanner(ZONES[1], 226, 590)}${zoneBanner(ZONES[2], 228, 1098)}
     ${nodes}

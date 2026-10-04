@@ -15,12 +15,13 @@ async function visibleWithin(selector) {
   const { width, height } = page.viewportSize();
   for (const b of boxes) assert.ok(b.x >= -1 && b.y >= -1 && b.right <= width + 1 && b.bottom <= height + 1, `${selector} within ${width}x${height}: ${JSON.stringify(b)}`);
 }
-async function seed({ language = 'vi', support = 'groups', returning = false } = {}) {
-  await page.evaluate(async ({ language, support, returning }) => {
+async function seed({ language = 'vi', support = 'groups', returning = false, forestPilot = false } = {}) {
+  await page.evaluate(async ({ language, support, returning, forestPilot }) => {
     const { defaultState } = await import('/js/state.js');
     const s = defaultState(); s.started = true; s.profile.nickname = 'Smoke'; s.profile.avatarId = 'fox';
     s.settings.language = language; s.settings.music = false; s.settings.sound = false;
     for (const id of ['v1','v2','v3','v4','v5','f1','f2','f3','f4','f5']) s.progress.completed[id] = { stars: 3, plays: 1, lastStars: 3 };
+    if (forestPilot) delete s.progress.completed.f2;
     s.progress.badges = ['village', 'forest']; s.progress.stickers = Object.keys(s.progress.completed); s.progress.revealedZones = ['village', 'forest', 'cove']; s.progress.tutorial.intro = true;
     if (support !== 'groups') for (let a = 2; a <= 9; a++) for (let b = 1; b <= 10; b++) s.learning.facts[`${a}x${b}`] = {
       attempts: 6, correct: 6, wrong: 0, mastery: support === 'recall' ? 0.9 : 0.4, independent: 3, supported: 0, assisted: 0, recovered: 0,
@@ -28,7 +29,7 @@ async function seed({ language = 'vi', support = 'groups', returning = false } =
     };
     if (returning) { s.pulse.lastVisit = Date.now() - 24 * 3600000; s.learning.facts['5x7'] = { attempts: 1, correct: 0, wrong: 1, mastery: 0.1, lastResult: false }; }
     localStorage.setItem('mra.save.v1', JSON.stringify(s));
-  }, { language, support, returning });
+  }, { language, support, returning, forestPilot });
   await page.reload(); await page.locator('#screen-home [data-act="continue"]').click();
 }
 async function openMission(id) {
@@ -40,12 +41,18 @@ async function enterNumber(value) {
   for (const digit of String(value)) { await page.locator(`.key[data-k="${digit}"]`).tap(); await page.waitForTimeout(90); }
   await page.locator('.key-ok').tap();
 }
-async function finishMission(id, { hint = false, mistake = false, realTouch = false, expectFaded = false } = {}) {
+async function finishMission(id, { hint = false, mistake = false, realTouch = false, expectFaded = false, forestPayoff = null } = {}) {
   let wrongGiven = false, echoSeen = false;
   for (let turn = 0; turn < 12; turn++) {
     await page.waitForFunction(() => document.querySelector('.phase-success:not([hidden])') || document.querySelector('.equation')?.dataset.a);
     if (await page.locator('.phase-success:not([hidden])').count()) break;
     const { a, b } = await page.locator('.equation').evaluate((e) => ({ a: +e.dataset.a, b: +e.dataset.b }));
+    if (forestPayoff === 'habitat' && turn === 0) {
+      assert.equal(await page.locator(`.world-charge[data-value="${a}"]`).getAttribute('aria-pressed'), 'true');
+      await page.locator('[data-act="world-send"]').click();
+      assert.equal(await page.locator('.station.built').count(), 1, 'earned light can route without selecting a new bundle');
+      await page.waitForTimeout(300);
+    }
     if (await page.locator('.world-controls').count()) {
       await visibleWithin('.world-controls button');
       if (id === 'f2') {
@@ -56,16 +63,21 @@ async function finishMission(id, { hint = false, mistake = false, realTouch = fa
       } else if (id === 'f4') {
         await page.locator(`[data-act="world-charge"][data-value="${a + 1}"]`).click();
         await page.locator('[data-act="world-send"]').click();
-        assert.equal(await page.locator('.station.built').count(), 0);
+        assert.equal(await page.locator('.station.built').count(), forestPayoff === 'habitat' && turn === 0 ? 1 : 0);
         await page.locator(`[data-act="world-charge"][data-value="${a}"]`).click();
       }
-      for (let i = 0; i < b; i++) {
+      const builtBefore = await page.locator('.gt.built').count();
+      for (let i = builtBefore; i < b; i++) {
         if (realTouch && i === 0) await page.locator('.gt:not(.built)').first().tap();
         else await page.locator('[data-act="world-send"]').click();
       }
       await page.locator('.world-controls').waitFor({ state: 'detached' });
       if (id === 'f2') assert.ok(parseFloat(await page.locator('[id$="pathLit"]').getAttribute('stroke-dasharray')) > 0);
       if (id === 'f4') assert.ok(+(await page.locator('[id$="mist"]').getAttribute('opacity')) < 0.92);
+    }
+    if (forestPayoff && turn === 0) {
+      const stage = await page.evaluate(() => JSON.parse(localStorage.getItem('mra.save.v1')).forest.stage);
+      assert.equal(stage, forestPayoff === 'light' ? 'quiet' : 'lit', 'world action alone does not earn the handoff');
     }
     if (expectFaded) assert.equal(await page.locator('.scene-svg.scaffold-faded').count(), 1);
     if (await page.locator('.task-card.again').count()) echoSeen = true;
@@ -78,6 +90,10 @@ async function finishMission(id, { hint = false, mistake = false, realTouch = fa
     }
     if (keypad) { await enterNumber(a * b); }
     else await page.locator(`.opt[data-value="${a * b}"]`).click();
+    if (forestPayoff && turn === 0) {
+      await page.waitForFunction((expected) => JSON.parse(localStorage.getItem('mra.save.v1')).forest.stage === expected, forestPayoff === 'light' ? 'lit' : 'connected');
+      await page.locator(forestPayoff === 'light' ? '.forest-receiver[data-lit="true"]' : '.forest-habitat[data-connected="true"]').waitFor();
+    }
     const prev = await page.locator('.pips i.on').count();
     await page.waitForFunction((prev) => document.querySelectorAll('.pips i.on').length > prev || document.querySelector('.phase-success:not([hidden])'), prev, { timeout: 15000 });
     await page.waitForFunction(() => document.querySelector('.phase-success:not([hidden])') || !document.querySelector('.opt.correct') && !document.querySelector('.ans-slot.ok'), null, { timeout: 15000 });
@@ -106,6 +122,30 @@ async function finishMission(id, { hint = false, mistake = false, realTouch = fa
     await page.reload(); await page.locator('#screen-home [data-act="continue"]').click();
     assert.equal(await page.locator('.map-node[data-id="v1"]').getAttribute('class').then((s) => s.includes('done')), true);
     console.log('PASS profile / existing repair / Hint keeps stars / save-reload');
+
+    await seed({ forestPilot: true }); await openMission('f2');
+    assert.equal(await page.locator('.forest-receiver').getAttribute('data-lit'), 'false');
+    await finishMission('f2', { forestPayoff: 'light', hint: true });
+    await page.reload(); await page.locator('#screen-home [data-act="continue"]').click();
+    assert.equal(await page.locator('.forest-connection').getAttribute('data-stage'), 'lit');
+    await openMission('f4');
+    assert.equal(await page.locator('.forest-receiver').getAttribute('data-lit'), 'true');
+    assert.equal(+(await page.locator('[id$="mist"]').getAttribute('opacity')), .72);
+    await visibleWithin('.forest-cue');
+    // Wait for the existing pop-in animation before checking the settled scene layout.
+    await page.waitForFunction(() => {
+      const svg = document.querySelector('.scene-svg');
+      const cue = svg.querySelector('.forest-cue').getBoundingClientRect();
+      const cap = svg.querySelector('.caption').getBoundingClientRect();
+      const habitat = svg.querySelector('.forest-habitat').getBoundingClientRect();
+      return cue.top >= cap.bottom && habitat.bottom <= svg.closest('.m-scene').getBoundingClientRect().bottom;
+    });
+    await finishMission('f4', { forestPayoff: 'habitat', realTouch: true });
+    await page.reload(); await page.locator('#screen-home [data-act="continue"]').click();
+    assert.equal(await page.locator('.forest-connection').getAttribute('data-stage'), 'connected');
+    assert.equal(await page.locator('.forest-habitat .forest-wildlife').getAttribute('opacity'), '1');
+    console.log('PASS V1.3 Fireflies → Signal starting light/mist → habitat / visible payoff / map persistence');
+    if (process.env.V13_ONLY) { assert.deepEqual(errors, []); console.log('PASS targeted V1.3 final regression / no browser errors'); return; }
 
     await seed(); await openMission('f2'); const firefly = await finishMission('f2', { mistake: true, realTouch: true });
     assert.ok(firefly.echoSeen, 'Fact Echo exercised during the mission');

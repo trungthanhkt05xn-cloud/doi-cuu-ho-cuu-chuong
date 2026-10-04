@@ -5,6 +5,7 @@ import { completeMission, starsFor, unlockedTables } from './progression.js';
 import { nextQuestion, recordAnswer, makeOptions, hintFor } from '../learning/engine.js';
 import { save } from '../state.js';
 import { completePulse } from './worldPulse.js';
+import { advanceForest } from './forestSystem.js';
 
 export class MissionSession {
   constructor(mission, { answerKind, optionCount, pulse = null }) {
@@ -28,6 +29,7 @@ export class MissionSession {
   next(kind = this.answerKind, count = this.optionCount) {
     this.q = nextQuestion(this.ctx);
     this.ctx.lastSource = this.q.source;
+    this.ctx.lastRepresentation = this.q.encounter.representation;
     this.options = kind === 'choices' ? makeOptions(this.q, count, this.level) : null;
     this.misses = 0;
     this.hintLevel = 0;
@@ -44,7 +46,7 @@ export class MissionSession {
     if (!this.recorded) {
       recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0,
         supported: q.encounter.support === 'groups', representation: q.encounter.representation,
-        remediation: q.source === 'remediation', from: this.mission.id });
+        mechanic: this.mission.type, remediation: q.source === 'remediation', from: this.mission.id });
       this.recorded = true;
       // Stars count actual mistakes only: the 💡 button raises hintLevel but is not a wrong answer.
       if (correct && this.misses === 0) {
@@ -53,9 +55,10 @@ export class MissionSession {
       }
     }
     if (correct) {
+      const forest = advanceForest(this.mission.type);
       this.step += 1;
       save();
-      return { correct: true, done: this.step >= this.total };
+      return { correct: true, done: this.step >= this.total, forest };
     }
     this.misses += 1;
     this.hintLevel = Math.min(4, Math.max(this.hintLevel + 1, this.misses));
