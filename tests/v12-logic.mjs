@@ -33,14 +33,14 @@ test('clean, hinted, and scaffolded success are distinct evidence; support canno
 
 test('support fades from groups through structure to recall; mistake restores help and Echo changes representation', () => {
   reset();
-  assert.deepEqual(encounterFor('4x6', 'firefly'), { support: 'groups', representation: 'groups' });
+  assert.deepEqual(encounterFor('4x6', 'firefly'), { support: 'groups', mode: 'BUILD', representation: 'groups' });
   for (let i = 0; i < 4; i++) recordAnswer('4x6', { correct: true, ms: 2000, supported: true, representation: 'groups', now });
   assert.equal(encounterFor('4x6', 'firefly').support, 'structure');
   for (let i = 0; i < 3; i++) recordAnswer('4x6', { correct: true, ms: 2000, representation: 'groups', now });
   assert.equal(encounterFor('4x6', 'firefly').support, 'recall');
   recordAnswer('4x6', { correct: false, ms: 2000, representation: 'groups', now });
-  assert.deepEqual(encounterFor('4x6', 'firefly', 'remediation'), { support: 'groups', representation: 'array' });
-  assert.deepEqual(encounterFor('4x6', 'signal', 'remediation'), { support: 'groups', representation: 'array' });
+  assert.deepEqual(encounterFor('4x6', 'firefly', 'remediation'), { support: 'groups', mode: 'BUILD', representation: 'array' });
+  assert.deepEqual(encounterFor('4x6', 'signal', 'remediation'), { support: 'groups', mode: 'BUILD', representation: 'array' });
   fixture('5x6', { lastRepresentation: 'array', lastResult: false });
   assert.equal(encounterFor('5x6', 'signal', 'remediation').representation, 'groups');
 });

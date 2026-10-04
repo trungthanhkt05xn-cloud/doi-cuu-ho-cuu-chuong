@@ -89,7 +89,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
         acting = false;
         svg.classList.remove('acting');
         rubber.setAttribute('opacity', '0');
-        if (q.encounter.support === 'structure') svg.classList.add('scaffold-faded');
+        // BUILD and COMPLETE retain the full structure until total retrieval.
         wait(380).then(() => { if (!destroyed) ready(); });
       }
     });
@@ -156,6 +156,17 @@ export function create({ root, mission, zone, P, grew, ready }) {
       svg.classList.toggle('acting', acting);
       svg.classList.toggle('scaffold-faded', !acting);
       draw();
+      if (q.encounter.mode === 'COMPLETE') {
+        const established = [...stEl.querySelectorAll('.station')].slice(0, q.b - 1);
+        established.forEach((n) => {
+          n.classList.add('built', 'on');
+          n.querySelector('.st-n').textContent = String(q.a);
+          svg.querySelector(`#${P}link${n.dataset.k}`).setAttribute('stroke-dasharray', '100 100');
+        });
+        built = landed = established.length;
+        if (built) grew(built);
+        mist.setAttribute('opacity', String(mistStart - (built / q.b) * (mistBase / N) * 0.5));
+      }
       if (!acting) {
         stEl.querySelectorAll('.station').forEach((n) => n.classList.add('built', 'on'));
         linksEl.querySelectorAll('.link').forEach((n) => n.setAttribute('stroke-dasharray', '100 100'));

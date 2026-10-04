@@ -45,7 +45,7 @@ export class MissionSession {
     const correct = Number(value) === q.answer;
     if (!this.recorded) {
       recordAnswer(q.key, { correct, ms: performance.now() - this.shownAt, hinted: this.hintLevel > 0,
-        supported: q.encounter.support === 'groups', representation: q.encounter.representation,
+        supported: q.encounter.support !== 'recall', representation: q.encounter.representation,
         mechanic: this.mission.type, remediation: q.source === 'remediation', from: this.mission.id });
       this.recorded = true;
       // Stars count actual mistakes only: the 💡 button raises hintLevel but is not a wrong answer.

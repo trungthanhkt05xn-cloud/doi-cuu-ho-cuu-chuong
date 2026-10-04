@@ -65,7 +65,12 @@ function migrate(data) {
     data.version = 2;
   }
   if (data.version === 2) data.version = 3; // merge supplies all new defaults; no progress reset
-  if (data.version === 3) data.version = 4;
+  if (data.version === 3) {
+    // Historical recovery must survive the upgrade, even if an optional forest field is malformed.
+    const completed = isObj(data.progress?.completed) ? data.progress.completed : {};
+    data.forest = { stage: completed.f4 || completed.f5 ? 'connected' : completed.f2 ? 'lit' : 'quiet' };
+    data.version = 4;
+  }
   return data;
 }
 

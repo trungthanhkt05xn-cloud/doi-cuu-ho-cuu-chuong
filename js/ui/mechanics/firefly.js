@@ -108,7 +108,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
         acting = false;
         svg.classList.remove('acting');
         jarEl.innerHTML = '';
-        if (q.encounter.support === 'structure') svg.classList.add('scaffold-faded');
+        // BUILD and COMPLETE retain the full structure until total retrieval.
         wait(380).then(() => { if (!destroyed) ready(); });
       }
     });
@@ -143,6 +143,18 @@ export function create({ root, mission, zone, P, grew, ready }) {
       svg.classList.toggle('acting', acting);
       svg.classList.toggle('scaffold-faded', !acting);
       drawNests();
+      if (q.encounter.mode === 'COMPLETE') {
+        const established = [...nestsEl.querySelectorAll('.nest')].slice(0, q.b - 1);
+        established.forEach((n) => {
+          n.classList.add('built', 'awake');
+          n.querySelector('.nest-n').textContent = String(q.a);
+        });
+        built = landed = established.length;
+        if (built) grew(built);
+        const v = pathStart + (built / q.b) * (100 / N) * 0.5;
+        lit.setAttribute('stroke-dasharray', `${v} 100`);
+        glow.setAttribute('stroke-dasharray', `${v} 100`);
+      }
       if (acting) drawJar();
       else { jarEl.innerHTML = ''; nestsEl.querySelectorAll('.nest').forEach((n) => n.classList.add('built', 'awake')); }
     },

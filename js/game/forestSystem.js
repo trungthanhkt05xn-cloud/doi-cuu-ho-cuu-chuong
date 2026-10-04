@@ -1,9 +1,8 @@
-// One qualitative, monotonic connection. Existing Fireflies completion supplies light too.
+// One qualitative, monotonic connection. Legacy progress is derived once during migration.
 import { getState } from '../state.js';
 
 export function forestStage(state = getState()) {
-  if (state.forest.stage === 'connected') return 'connected';
-  return state.forest.stage === 'lit' || state.progress.completed.f2 ? 'lit' : 'quiet';
+  return state.forest.stage;
 }
 
 // Called only after successful total retrieval, never for building, hints, or mistakes.

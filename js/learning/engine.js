@@ -123,14 +123,15 @@ export function nextQuestion(ctx) {
 
 /** Fade support using evidence, not speed. Echo changes the picture without revealing the product. */
 export function encounterFor(key, mechanic, source = 'target', context = {}) {
-  if (!['firefly', 'signal'].includes(mechanic)) return { support: 'recall', representation: 'recall' };
+  if (!['firefly', 'signal'].includes(mechanic)) return { support: 'recall', mode: 'RECALL', representation: 'recall' };
   const f = factOf(key);
   const confident = f && f.mastery >= 0.65 && f.independent >= 2 && f.lastResult === true && !f.lastSupported;
   const support = confident && source !== 'remediation' ? 'recall' : f && f.mastery >= 0.25 && f.lastResult !== false ? 'structure' : 'groups';
   const base = mechanic === 'signal' ? 'array' : 'groups';
   const previous = source === 'remediation' || f?.lastMechanic ? f?.lastRepresentation : context.lastRepresentation;
   const representation = support === 'recall' ? 'recall' : previous === base ? (base === 'groups' ? 'array' : 'groups') : base;
-  return { support, representation };
+  const mode = { groups: 'BUILD', structure: 'COMPLETE', recall: 'RECALL' }[support];
+  return { support, mode, representation };
 }
 
 /**

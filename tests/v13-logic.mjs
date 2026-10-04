@@ -22,17 +22,23 @@ test('retrieval creates a monotonic handoff; exploration, Hint, mistakes and rep
   for (let i = 0; i < 30; i++) assert.equal(advanceForest(i % 2 ? 'signal' : 'firefly').changed, false);
   save(); load(); assert.equal(forestStage(), 'connected'); assert.deepEqual(getState().forest, { stage: 'connected' });
 });
-test('Signal remains playable without light; migration derives old light but preserves new payoff', () => {
+test('V1/V2/V3 migration preserves historical Forest recovery; V4 reload preserves explicit stages', () => {
   reset(); assert.equal(advanceForest('signal').after, 'quiet');
-  for (const version of [1, 2, 3]) {
-    const old = defaultState(); old.version = version; delete old.forest;
+  const cases = [[[], 'quiet'], [['f2'], 'lit'], [['f2', 'f4'], 'connected'], [['f5'], 'connected']];
+  for (const version of [1, 2, 3]) for (const [ids, expected] of cases) {
+    const old = defaultState(); old.version = version; old.forest = { stage: 'malformed' };
     old.profile = { nickname: 'Mai', avatarId: 'fox', stars: 6 };
-    old.progress.completed = { f2: { stars: 3, plays: 2 }, f4: { stars: 3, plays: 1 } };
+    old.progress.completed = Object.fromEntries(ids.map(id => [id, { stars: 3, plays: 2 }]));
     old.pulse.blooms = ['f2']; old.pulse.garden.forest = 2; old.settings.language = 'en';
     stored = JSON.stringify(old); load(); const s = getState();
     assert.equal(s.version, 4); assert.deepEqual(s.progress, old.progress); assert.deepEqual(s.profile, old.profile);
     assert.deepEqual(s.pulse, old.pulse); assert.deepEqual(s.settings, old.settings);
-    assert.equal(forestStage(), 'lit'); assert.equal(advanceForest('signal').after, 'connected');
+    assert.equal(s.forest.stage, expected); assert.equal(forestStage(), expected);
+    save(); load(); assert.equal(getState().forest.stage, expected);
+  }
+  for (const stage of ['quiet', 'lit', 'connected']) {
+    const s = defaultState(); s.forest.stage = stage; s.progress.completed.f4 = { stars: 3 };
+    stored = JSON.stringify(s); load(); assert.equal(getState().forest.stage, stage); assert.equal(forestStage(), stage);
   }
 });
 test('malformed optional connection and mechanic evidence sanitize without losing progress', () => {
@@ -51,7 +57,7 @@ test('last Forest action varies the next representation, round-trips, and does n
   assert.equal(encounterFor('4x6', 'firefly', 'target', { lastRepresentation: 'groups' }).representation, 'array');
 });
 test('Pulse balances world handoff and recent action while stronger learner need wins; locked Signal stays locked', () => {
-  reset(); const s = getState(); s.progress.completed = { v1: {}, v5: {}, f1: {}, f2: {}, f3: {} };
+  reset(); const s = getState(); s.progress.completed = { v1: {}, v5: {}, f1: {}, f2: {}, f3: {} }; s.forest.stage = 'lit';
   assert.equal(selectPulse().mission.id, 'f4');
   delete s.progress.completed.f3; assert.notEqual(selectPulse().mission.id, 'f4');
   s.progress.completed.f4 = {}; s.forest.stage = 'connected';
@@ -59,4 +65,23 @@ test('Pulse balances world handoff and recent action while stronger learner need
   assert.equal(selectPulse().mission.id, 'f2');
   for (const key of ['2x3', '2x4', '2x5']) recordAnswer(key, { correct: false, ms: 2000 });
   assert.equal(selectPulse().mission.id, 'v1');
+});
+
+test('support derives BUILD/COMPLETE/RECALL; COMPLETE is supported and only clean RECALL earns independent evidence', () => {
+  for (const id of ['f2', 'f4']) for (const [mastery, expected] of [[0, 'BUILD'], [.4, 'COMPLETE'], [.8, 'RECALL']]) {
+    reset();
+    for (let a = 2; a <= 9; a++) for (let b = 1; b <= 10; b++) {
+      recordAnswer(`${a}x${b}`, { correct: true, ms: 2000 });
+      Object.assign(getState().learning.facts[`${a}x${b}`], { mastery, independent: expected === 'RECALL' ? 3 : 0, streak: 0 });
+    }
+    const run = session(id); run.next(); assert.equal(run.q.encounter.mode, expected);
+    const fact = getState().learning.facts[run.q.key], independent = fact.independent, supported = fact.supported;
+    run.answer(run.q.answer);
+    assert.equal(fact.independent, independent + Number(expected === 'RECALL'));
+    assert.equal(fact.supported, supported + Number(expected !== 'RECALL'));
+    assert.equal(fact.lastSupported, expected !== 'RECALL');
+    if (expected !== 'RECALL') assert.equal(fact.streak, 0);
+    const echo = encounterFor(run.q.key, run.mission.type, 'remediation');
+    assert.notEqual(echo.mode, 'RECALL'); assert.notEqual(echo.representation, 'recall');
+  }
 });
