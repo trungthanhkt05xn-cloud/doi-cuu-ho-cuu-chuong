@@ -1,6 +1,10 @@
 # PROJECT STATUS
 
 ## Current phase
+**V1.3 “Living Math Systems” — candidate branch, independent QA pending.**
+Forest light now feeds Signal’s starting bundle and a persistent habitat; adaptive variety and World Pulse reuse existing learner evidence. See [V1.3 candidate notes](docs/V1_3_CANDIDATE.md). No V1.3 merge, release tag or production promotion is authorized.
+
+## Released baseline
 **V1.2 "Adaptive Living Rescue" — release approved, version `v1.2.0`.**
 Owner real-device QA: **PASS** (owner report, release authorization dated 2026-10-02).
 Automated logic/browser regression: **PASS**. Tested Cloudflare candidate preview:

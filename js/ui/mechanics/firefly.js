@@ -8,12 +8,16 @@ import { play } from '../../audio.js';
 import { t, tList } from '../../i18n.js';
 import { groupSlots, arraySlots, dotGrid, columnDots, groupInput, handCue, atPathPoint, caption } from './groups.js';
 
+import { forestStage } from '../../game/forestSystem.js';
+import { receiver, lightTransfer } from './forestArt.js';
+
 const DARK = 0.5;
 const PATH = 'M22 266 C 100 282, 150 236, 214 248 S 318 240, 348 226';
 
 export function create({ root, mission, zone, P, grew, ready }) {
   const T = THEMES[zone.id];
   const N = mission.steps;
+  const stage = forestStage();
   let s = defs(P, T) + sceneBackdrop(zone.id, P, T, { night: true });
   s += `<rect x="-400" y="206" width="1200" height="400" fill="url(#${P}ground)"/>`;
   s += pine(-8, 250, 1.4) + pine(410, 256, 1.5) + mushroom(300, 270, 1) + mushroom(120, 272, 0.8);
@@ -31,6 +35,8 @@ export function create({ root, mission, zone, P, grew, ready }) {
   s += `<g id="${P}nests" class="nests"></g><g id="${P}jar" class="group-jar"></g>`;
   s += `<g id="${P}heroWrap">${hero(0, 0, 0.5, `${P}hero`)}</g>`;
 
+  s += receiver(348, 190, stage !== 'quiet');
+  s += `<text class="forest-cue" x="200" y="20" text-anchor="middle" fill="#ffe98a" font-size="11">${t(stage === 'quiet' ? 'forest.send' : 'forest.arrived')}</text>`;
   root.innerHTML = svgWrap(s, { cls: 'scene-svg acting', par: 'xMidYMax meet' });
   const svg = root.querySelector('svg');
   const nestsEl = svg.querySelector(`#${P}nests`);
@@ -102,7 +108,7 @@ export function create({ root, mission, zone, P, grew, ready }) {
         acting = false;
         svg.classList.remove('acting');
         jarEl.innerHTML = '';
-        if (q.encounter.support === 'structure') svg.classList.add('scaffold-faded');
+        // BUILD and COMPLETE retain the full structure until total retrieval.
         wait(380).then(() => { if (!destroyed) ready(); });
       }
     });
@@ -137,6 +143,18 @@ export function create({ root, mission, zone, P, grew, ready }) {
       svg.classList.toggle('acting', acting);
       svg.classList.toggle('scaffold-faded', !acting);
       drawNests();
+      if (q.encounter.mode === 'COMPLETE') {
+        const established = [...nestsEl.querySelectorAll('.nest')].slice(0, q.b - 1);
+        established.forEach((n) => {
+          n.classList.add('built', 'awake');
+          n.querySelector('.nest-n').textContent = String(q.a);
+        });
+        built = landed = established.length;
+        if (built) grew(built);
+        const v = pathStart + (built / q.b) * (100 / N) * 0.5;
+        lit.setAttribute('stroke-dasharray', `${v} 100`);
+        glow.setAttribute('stroke-dasharray', `${v} 100`);
+      }
       if (acting) drawJar();
       else { jarEl.innerHTML = ''; nestsEl.querySelectorAll('.nest').forEach((n) => n.classList.add('built', 'awake')); }
     },
@@ -153,6 +171,17 @@ export function create({ root, mission, zone, P, grew, ready }) {
       svg.classList.remove('scaffold-faded');
       if (h.level > 2) return;
       [...nestsEl.querySelectorAll('.nest')].forEach((n, k) => setTimeout(() => retrigger(n, 'pulse'), k * 160));
+    },
+    onForestChange(change) {
+      if (!change?.changed) return;
+      lightTransfer(svg, 'M190 224 Q260 164 348 190', () => !destroyed, () => {
+        const target = svg.querySelector('.forest-receiver');
+        target.dataset.lit = 'true'; target.setAttribute('aria-label', t('forest.arrived'));
+        target.querySelector('path').setAttribute('fill', '#ffe98a');
+        target.querySelectorAll('.forest-feed').forEach((n) => n.setAttribute('opacity', '1'));
+        svg.querySelector('.forest-cue').textContent = t('forest.arrived');
+        svgBurst(svg, 348, 190, { chars: ['✨'], n: 4 });
+      });
     },
     async onCorrect(i) {
       const cap = nestsEl.querySelector('.caption');

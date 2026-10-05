@@ -33,14 +33,14 @@ test('clean, hinted, and scaffolded success are distinct evidence; support canno
 
 test('support fades from groups through structure to recall; mistake restores help and Echo changes representation', () => {
   reset();
-  assert.deepEqual(encounterFor('4x6', 'firefly'), { support: 'groups', representation: 'groups' });
+  assert.deepEqual(encounterFor('4x6', 'firefly'), { support: 'groups', mode: 'BUILD', representation: 'groups' });
   for (let i = 0; i < 4; i++) recordAnswer('4x6', { correct: true, ms: 2000, supported: true, representation: 'groups', now });
   assert.equal(encounterFor('4x6', 'firefly').support, 'structure');
   for (let i = 0; i < 3; i++) recordAnswer('4x6', { correct: true, ms: 2000, representation: 'groups', now });
   assert.equal(encounterFor('4x6', 'firefly').support, 'recall');
   recordAnswer('4x6', { correct: false, ms: 2000, representation: 'groups', now });
-  assert.deepEqual(encounterFor('4x6', 'firefly', 'remediation'), { support: 'groups', representation: 'array' });
-  assert.deepEqual(encounterFor('4x6', 'signal', 'remediation'), { support: 'groups', representation: 'array' });
+  assert.deepEqual(encounterFor('4x6', 'firefly', 'remediation'), { support: 'groups', mode: 'BUILD', representation: 'array' });
+  assert.deepEqual(encounterFor('4x6', 'signal', 'remediation'), { support: 'groups', mode: 'BUILD', representation: 'array' });
   fixture('5x6', { lastRepresentation: 'array', lastResult: false });
   assert.equal(encounterFor('5x6', 'signal', 'remediation').representation, 'groups');
 });
@@ -77,7 +77,7 @@ test('weak review and mastered spaced retrieval remain available with reproducib
   assert.deepEqual(run(), run());
 });
 
-test('V1 and V2 saves preserve progress, profile, settings, mastery and queue through V3 round-trip', () => {
+test('V1 and V2 saves preserve progress, profile, settings, mastery and queue through current-schema round-trip', () => {
   for (const version of [1, 2]) {
     reset(); const old = defaultState(); old.version = version;
     old.started = true; old.profile = { stars: 8, nickname: 'Bin', avatarId: 'fox' };
@@ -89,7 +89,7 @@ test('V1 and V2 saves preserve progress, profile, settings, mastery and queue th
     delete old.pulse;
     if (version === 1) { old.learning.queue = old.learning.wrongFactQueue; delete old.learning.wrongFactQueue; }
     stored = JSON.stringify(old); load(); const current = getState();
-    assert.equal(current.version, 3); assert.deepEqual(current.profile, old.profile); assert.deepEqual(current.progress, old.progress);
+    assert.equal(current.version, 4); assert.deepEqual(current.profile, old.profile); assert.deepEqual(current.progress, old.progress);
     assert.deepEqual(current.settings, old.settings); assert.equal(current.learning.facts['4x6'].mastery, 0.7);
     assert.equal(current.learning.facts['4x6'].independent, 3);
     assert.deepEqual(current.learning.wrongFactQueue, [{ key: '4x6', dueQ: 12, from: 'f2' }]);
@@ -108,7 +108,7 @@ test('malformed optional V3 fields and invalid fact keys cannot poison selection
   assert.ok(getState().progress.completed.v1); assert.deepEqual(getState().learning.recent, ['4x6']);
   assert.deepEqual(getState().pulse, { lastVisit: 0, lastCompleted: 0, blooms: ['f2'], garden: { village: 0, forest: 0, cove: 0 } });
   assert.equal(getState().learning.facts['4x6'].mastery, 0); assert.ok(nextQuestion(context()).key);
-  stored = '{bad JSON'; load(); assert.equal(getState().version, 3);
+  stored = '{bad JSON'; load(); assert.equal(getState().version, 4);
 });
 
 test('World Pulse eligibility is calm, deterministic, familiar and bounded per visit; blooms persist', () => {

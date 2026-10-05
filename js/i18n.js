@@ -6,6 +6,12 @@ export const LANGS = ['vi', 'en'];
 let lang = 'vi';
 
 const vi = {
+  'forest.send': 'Ánh sáng từ các tổ sẽ đến cây tín hiệu.',
+  'forest.arrived': 'Đom đóm đã mang ánh sáng đến cây tín hiệu!',
+  'forest.waiting': 'Cây tín hiệu đang chờ ánh sáng đom đóm.',
+  'forest.route': 'Đom đóm đã nạp nhóm đầu — nối đến vườn!',
+  'forest.habitat': 'Ánh sáng đã tới vườn nấm — bướm về rồi!',
+
   "pulse.title": "Thế giới gọi bạn!",
   "pulse.invite": "{place} cần bạn giúp một chút.",
   "pulse.later": "Để lúc khác",
@@ -117,6 +123,12 @@ const vi = {
 };
 
 const en = {
+  'forest.send': 'Light from the nests will reach the signal tree.',
+  'forest.arrived': 'Fireflies brought light to the signal tree!',
+  'forest.waiting': 'The signal tree is waiting for firefly light.',
+  'forest.route': 'Fireflies filled your first bundle — route it to the garden!',
+  'forest.habitat': 'Light reached the mushroom garden — butterflies are home!',
+
   "pulse.title": "The world is calling!",
   "pulse.invite": "{place} could use a little help.",
   "pulse.later": "Another time",

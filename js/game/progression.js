@@ -4,27 +4,27 @@ import { getState } from '../state.js';
 
 const P = () => getState().progress;
 
-export const isDone = (id) => !!P().completed[id];
+export const isDone = (id, progress = P()) => !!progress.completed[id];
 export const starsOf = (id) => (P().completed[id] ? P().completed[id].stars : 0);
 const finaleOf = (zoneId) => zoneMissions(zoneId).find((m) => m.finale);
 
-export function zoneUnlocked(zoneId) {
+export function zoneUnlocked(zoneId, progress = P()) {
   const i = ZONES.findIndex((z) => z.id === zoneId);
   if (i <= 0) return true;
-  return isDone(finaleOf(ZONES[i - 1].id).id);
+  return isDone(finaleOf(ZONES[i - 1].id).id, progress);
 }
 
 // Regular missions unlock one after another; the finale opens after 3 regular missions
 // ("most of the zone", no perfect score needed). Clearing the finale opens the next zone.
 export const FINALE_NEEDS = 3;
 
-export function missionStatus(m) {
-  if (isDone(m.id)) return 'done';
-  if (!zoneUnlocked(m.zone)) return 'locked';
+export function missionStatus(m, progress = P()) {
+  if (isDone(m.id, progress)) return 'done';
+  if (!zoneUnlocked(m.zone, progress)) return 'locked';
   const regular = zoneMissions(m.zone).filter((x) => !x.finale);
-  if (m.finale) return regular.filter((x) => isDone(x.id)).length >= FINALE_NEEDS ? 'open' : 'locked';
+  if (m.finale) return regular.filter((x) => isDone(x.id, progress)).length >= FINALE_NEEDS ? 'open' : 'locked';
   const i = regular.indexOf(m);
-  return i === 0 || isDone(regular[i - 1].id) ? 'open' : 'locked';
+  return i === 0 || isDone(regular[i - 1].id, progress) ? 'open' : 'locked';
 }
 
 // The mission the map should point at: first open mission in the newest unlocked zone.
@@ -61,7 +61,7 @@ export function world() {
   return w;
 }
 /** How far Whisper Woods has recovered (0–3): fireflies → forest signal → owl home. */
-export const forestLayers = () => ['f2', 'f4', 'f5'].filter(isDone).length;
+export const forestLayers = () => ['f2', 'f4', 'f5'].filter((id) => isDone(id)).length;
 
 export function starsFor(firstTryCorrect, total) {
   const r = total ? firstTryCorrect / total : 0;

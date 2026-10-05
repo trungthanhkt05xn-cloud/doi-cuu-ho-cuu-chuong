@@ -25,7 +25,7 @@ function ensureFact(k) {
   if (!facts[k]) {
     facts[k] = { attempts: 0, correct: 0, wrong: 0, streak: 0, lastSeen: null, lastResult: null,
       lastMs: null, avgResponseMs: null, mastery: 0, recovered: 0, assisted: 0,
-      independent: 0, supported: 0, lastSupported: false, lastRepresentation: null };
+      independent: 0, supported: 0, lastSupported: false, lastRepresentation: null, lastMechanic: null };
   }
   return facts[k];
 }
@@ -118,18 +118,20 @@ export function nextQuestion(ctx) {
   lp.recent.push(chosen);
   if (lp.recent.length > 6) lp.recent.shift();
   const { a, b } = parseKey(chosen);
-  return { key: chosen, a, b, answer: a * b, source, from, encounter: encounterFor(chosen, ctx.mechanic, source) };
+  return { key: chosen, a, b, answer: a * b, source, from, encounter: encounterFor(chosen, ctx.mechanic, source, ctx) };
 }
 
 /** Fade support using evidence, not speed. Echo changes the picture without revealing the product. */
-export function encounterFor(key, mechanic, source = 'target') {
-  if (!['firefly', 'signal'].includes(mechanic)) return { support: 'recall', representation: 'recall' };
+export function encounterFor(key, mechanic, source = 'target', context = {}) {
+  if (!['firefly', 'signal'].includes(mechanic)) return { support: 'recall', mode: 'RECALL', representation: 'recall' };
   const f = factOf(key);
   const confident = f && f.mastery >= 0.65 && f.independent >= 2 && f.lastResult === true && !f.lastSupported;
   const support = confident && source !== 'remediation' ? 'recall' : f && f.mastery >= 0.25 && f.lastResult !== false ? 'structure' : 'groups';
   const base = mechanic === 'signal' ? 'array' : 'groups';
-  const representation = support === 'recall' ? 'recall' : source === 'remediation' && f?.lastRepresentation === base ? (base === 'groups' ? 'array' : 'groups') : base;
-  return { support, representation };
+  const previous = source === 'remediation' || f?.lastMechanic ? f?.lastRepresentation : context.lastRepresentation;
+  const representation = support === 'recall' ? 'recall' : previous === base ? (base === 'groups' ? 'array' : 'groups') : base;
+  const mode = { groups: 'BUILD', structure: 'COMPLETE', recall: 'RECALL' }[support];
+  return { support, mode, representation };
 }
 
 /**
@@ -137,13 +139,14 @@ export function encounterFor(key, mechanic, source = 'target') {
  * remediation = this question was the "second chance" for an earlier mistake.
  * from = mission id where it was asked (remembered with a queued mistake for Fact Echo).
  */
-export function recordAnswer(key, { correct, ms, hinted = false, supported = false, representation = 'recall', remediation = false, from = null, now = Date.now() }) {
+export function recordAnswer(key, { correct, ms, hinted = false, supported = false, representation = 'recall', mechanic = null, remediation = false, from = null, now = Date.now() }) {
   const lp = L();
   const f = ensureFact(key);
   f.attempts += 1;
   f.lastSeen = now;
   f.lastSupported = hinted || supported;
   f.lastRepresentation = representation;
+  f.lastMechanic = ['firefly', 'signal'].includes(mechanic) ? mechanic : null;
   f.lastResult = correct;
   f.lastMs = Math.round(ms);
   // The second chance is used up once answered (leaving mid-question keeps it queued for later).
